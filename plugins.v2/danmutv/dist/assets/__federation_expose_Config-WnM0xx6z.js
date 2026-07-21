@@ -579,8 +579,9 @@ return (_ctx, _cache) => {
                                   _createVNode(_component_v_text_field, {
                                     modelValue: editableConfig.danmu_api_url,
                                     "onUpdate:modelValue": _cache[5] || (_cache[5] = $event => ((editableConfig.danmu_api_url) = $event)),
-                                    label: "弹幕API地址",
+                                    label: "danmu api地址",
                                     variant: "outlined",
+                                    placeholder: "http://localhost:9321/{TOKEN}",
                                     hint: "弹幕API后端地址",
                                     "persistent-hint": "",
                                     "prepend-inner-icon": "mdi-web",
@@ -892,6 +893,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const Config = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-2c815d31"]]);
+const Config = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-b7c709a2"]]);
 
 export { Config as default };

@@ -163,6 +163,7 @@
                       v-model="editableConfig.danmu_api_url"
                       label="弹幕API地址"
                       variant="outlined"
+                      placeholder="http://localhost:9321/{TOKEN}"
                       hint="弹幕API后端地址"
                       persistent-hint
                       prepend-inner-icon="mdi-web"

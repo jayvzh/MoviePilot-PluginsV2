@@ -1298,11 +1298,11 @@ class DanmuTV(_PluginBase):
     def check_api_status(self, api_url: Optional[str] = None) -> schemas.Response:
         target_url = (api_url or self._danmu_api_url or "http://localhost:9321").rstrip('/')
         try:
-            resp = requests.get(
-                f"{target_url}/api/v2/search/anime",
-                params={"keyword": "test"},
+            resp = requests.post(
+                f"{target_url}/api/v2/match",
+                json={"fileName": "测试.S01E01"},
                 headers=generator.DanmuAPI.HEADERS,
-                timeout=5
+                timeout=10
             )
             if resp.status_code == 200:
                 return schemas.Response(success=True, message=f"API可访问 ({target_url})")
