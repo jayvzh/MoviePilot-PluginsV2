@@ -746,7 +746,7 @@ class DanmuTV(_PluginBase):
             )
             
             # 检查弹幕生成结果
-            ass_file = f"{os.path.splitext(file_path)[0]}.danmu.ass"
+            ass_file = f"{os.path.splitext(file_path)[0]}.danmu.chs.ass"
             danmu_count = 0
             
             # 如果返回字符串且包含弹幕数量为0，说明是失败原因
@@ -900,7 +900,7 @@ class DanmuTV(_PluginBase):
     def _scrape_one(self, file_path: str):
         try:
             result = self.generate_danmu(file_path)
-            ok = isinstance(result, str) and result.endswith('.danmu.ass')
+            ok = isinstance(result, str) and result.endswith('.danmu.chs.ass')
         except Exception as e:
             logger.error(f"刮削文件失败: {file_path}: {e}")
             ok = False
@@ -1189,7 +1189,7 @@ class DanmuTV(_PluginBase):
                     result["type"] = "media"
                     result["manual_match"] = self._get_manual_match(os.path.dirname(path), check_legacy=False)
                     # 检查是否存在对应的弹幕文件
-                    ass_file = f"{os.path.splitext(path)[0]}.danmu.ass"
+                    ass_file = f"{os.path.splitext(path)[0]}.danmu.chs.ass"
                     result["danmu_count"] = self._count_danmu_lines_cached(ass_file)
                 return result
 
@@ -1260,7 +1260,7 @@ class DanmuTV(_PluginBase):
                     child["manual_scope"] = current_dir_scope
                 child["directory_path"] = path
                 # 弹幕文件与媒体同目录，用本次scandir结果判断存在性，避免逐文件stat
-                ass_name = f"{os.path.splitext(entry.name)[0]}.danmu.ass"
+                ass_name = f"{os.path.splitext(entry.name)[0]}.danmu.chs.ass"
                 ass_entry = entry_map.get(ass_name)
                 if ass_entry is not None:
                     try:
@@ -1302,7 +1302,7 @@ class DanmuTV(_PluginBase):
             if isinstance(result, str) and not result.endswith('.ass'):
                 return schemas.Response(success=False, message=result)
             # 正常生成
-            ass_file = f"{os.path.splitext(file_path)[0]}.danmu.ass"
+            ass_file = f"{os.path.splitext(file_path)[0]}.danmu.chs.ass"
             danmu_count = self._count_danmu_lines_cached(ass_file)
             logger.info(f"生成弹幕成功，弹幕数量: {danmu_count}")
             if danmu_count == 0:
@@ -1590,7 +1590,7 @@ class DanmuTV(_PluginBase):
                 # 检查结果
                 if result and not (isinstance(result, str) and result.startswith('弹幕数量为0')):
                     # 检查弹幕文件是否满足要求
-                    ass_file = f"{os.path.splitext(file_path)[0]}.danmu.ass"
+                    ass_file = f"{os.path.splitext(file_path)[0]}.danmu.chs.ass"
                     if os.path.exists(ass_file):
                         danmu_count = self._count_danmu_lines_cached(ass_file)
                         if danmu_count >= self._min_danmu_count:

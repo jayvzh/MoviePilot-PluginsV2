@@ -1409,7 +1409,7 @@ def danmu_generator(file_path: str, width: int = 1920, height: int = 1080,
             comments = [comment for comment in comments if '[BiliBili]' in comment['p'].split(',')[3]]
             logger.info(f"过滤后剩余{len(comments)}条B站弹幕")
 
-        output_file = os.path.splitext(file_path)[0] + '.danmu.ass'
+        output_file = os.path.splitext(file_path)[0] + '.danmu.chs.ass'
         
         DanmuConverter.convert_comments_to_ass(
             comments, output_file, 
