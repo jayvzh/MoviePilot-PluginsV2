@@ -1,0 +1,14 @@
+{
+  "DanmuTV": {
+    "name": "弹幕刮削(影视版)",
+    "description": "使用弹幕API后端生成影视弹幕字幕文件，支持电视剧、电影、动漫等多种媒体类型。",
+    "labels": "弹幕,刮削",
+    "version": "1.0",
+    "icon": "danmu.png",
+    "author": "jayvzh",
+    "level": 1,
+    "history": {
+      "v1.0": "初始版本，支持弹幕API生成影视弹幕字幕文件"
+    }
+  }
+}
