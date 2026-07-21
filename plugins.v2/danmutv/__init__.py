@@ -48,8 +48,8 @@ class DanmuTV(_PluginBase):
     _enabled = False
     _width = 1920
     _height = 1080
-    _fontsize = 48
-    _alpha = 0.8
+    _fontsize = 50
+    _alpha = 0.9
     _duration = 14
     _path = ''
     _max_threads = 2
@@ -324,7 +324,7 @@ class DanmuTV(_PluginBase):
             self._width = config.get("width", 1920)
             self._height = config.get("height", 1080)
             self._fontsize = config.get("fontsize", 50)
-            self._alpha = config.get("alpha", 0.8)
+            self._alpha = config.get("alpha", 0.9)
             self._duration = config.get("duration", 15)
             self._path = config.get("path", "")
             self._useTmdbID = config.get("useTmdbID", True)
@@ -575,7 +575,7 @@ class DanmuTV(_PluginBase):
             self._width = config.get("width", 1920)
             self._height = config.get("height", 1080)
             self._fontsize = config.get("fontsize", 50)
-            self._alpha = config.get("alpha", 0.8)
+            self._alpha = config.get("alpha", 0.9)
             self._duration = config.get("duration", 15)
             self._path = config.get("path", "")
             self._useTmdbID = config.get("useTmdbID", True)

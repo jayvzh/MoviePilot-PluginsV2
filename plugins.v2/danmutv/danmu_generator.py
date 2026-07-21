@@ -490,9 +490,9 @@ class DanmuConverter:
         
         if multi_layer:
             front_alpha = int((1 - alpha * 1.0) * 255)
-            mid_alpha = int((1 - alpha * 0.9) * 255)
+            mid_alpha = int((1 - alpha * 0.8) * 255)
             back_alpha = int((1 - alpha * 0.7) * 255)
-            front_fontsize = fontsize * 1.1
+            front_fontsize = fontsize * 1.2
             mid_fontsize = fontsize
             back_fontsize = fontsize * 0.9
             
@@ -632,13 +632,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     if pos == 1:  # 滚动弹幕
                         if enable_multi_layer:
                             r = random.random()
-                            if r < 0.25:
+                            if r < 0.20:  # 顶层20%
                                 layer = 'front'
                                 layer_num = 10
                                 duration_factor = 0.75 + random.random() * 0.15
                                 layer_style = f'{styleid}Front'
-                                layer_fontsize = fontsize * 1.1
-                            elif r < 0.75:
+                                layer_fontsize = fontsize * 1.2
+                            elif r < 0.75:  # 中层55% (0.20+0.55=0.75)
                                 layer = 'mid'
                                 layer_num = 5
                                 duration_factor = 0.95 + random.random() * 0.2

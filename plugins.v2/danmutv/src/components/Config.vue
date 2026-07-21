@@ -374,7 +374,7 @@ const editableConfig = reactive({
   width: 1920,
   height: 1080,
   fontsize: 50,
-  alpha: 0.8,
+  alpha: 0.9,
   duration: 15,
   path: '',
   useTmdbID: true,
