@@ -275,7 +275,7 @@
                       <div class="d-flex justify-space-between align-center">
                         <div>
                           <div class="text-subtitle-2">启用多层弹幕</div>
-                          <div class="text-caption text-grey">开启后弹幕分为三层，具有不同速度和透明度，营造深度感</div>
+                          <div class="text-caption text-grey">开启后弹幕分层显示，具有不同速度和透明度，营造深度感</div>
                         </div>
                         <v-switch
                           v-model="editableConfig.enable_multi_layer"
@@ -286,6 +286,23 @@
                           hide-details
                           class="small-switch"
                         ></v-switch>
+                      </div>
+                      <div v-if="editableConfig.enable_multi_layer" class="d-flex align-center mt-2">
+                        <div class="text-caption text-grey mr-3">弹幕层数</div>
+                        <v-btn-toggle
+                          v-model.number="editableConfig.multi_layer_count"
+                          mandatory
+                          density="compact"
+                          color="primary"
+                          :disabled="saving"
+                        >
+                          <v-btn :value="2" size="small">2层</v-btn>
+                          <v-btn :value="3" size="small">3层</v-btn>
+                        </v-btn-toggle>
+                        <div class="text-caption text-grey ml-3">
+                          <span v-if="editableConfig.multi_layer_count === 2">顶层25% / 中层75%</span>
+                          <span v-else>顶层20% / 中层60% / 底层20%</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -364,6 +381,42 @@
                           style="max-width: 130px;"
                           :disabled="saving"
                         ></v-text-field>
+                      </div>
+                    </div>
+                  </div>
+                </v-col>
+                <v-col cols="12" md="6">
+                  <div class="setting-item d-flex align-center py-2">
+                    <v-icon icon="mdi-arrow-expand-horizontal" size="small" color="grey" class="mr-3"></v-icon>
+                    <div class="setting-content flex-grow-1">
+                      <div class="d-flex justify-space-between align-center">
+                        <div>
+                          <div class="text-subtitle-2">弹幕宽度扩展</div>
+                          <div class="text-caption text-grey">扩大弹幕显示区域宽度，解决超宽屏/手机屏左右空白问题</div>
+                        </div>
+                        <v-select
+                          v-model.number="editableConfig.width_scale"
+                          density="compact"
+                          variant="outlined"
+                          hide-details
+                          :items="[
+                            { title: '1.0x (标准)', value: 1.0 },
+                            { title: '1.1x', value: 1.1 },
+                            { title: '1.2x', value: 1.2 },
+                            { title: '1.3x', value: 1.3 },
+                            { title: '1.4x', value: 1.4 },
+                            { title: '1.5x', value: 1.5 },
+                            { title: '1.6x', value: 1.6 },
+                            { title: '1.7x', value: 1.7 },
+                            { title: '1.8x', value: 1.8 },
+                            { title: '1.9x', value: 1.9 },
+                            { title: '2.0x', value: 2.0 }
+                          ]"
+                          item-title="title"
+                          item-value="value"
+                          style="max-width: 150px;"
+                          :disabled="saving"
+                        ></v-select>
                       </div>
                     </div>
                   </div>
@@ -463,10 +516,12 @@ const editableConfig = reactive({
   enable_strm: true,
   danmu_api_url: 'http://localhost:9321',
   enable_multi_layer: false,
+  multi_layer_count: 2,
   random_top_bottom: false,
   top_ratio: 0,
   bottom_ratio: 0,
-  density: 100
+  density: 100,
+  width_scale: 1.0
 });
 
 const getPluginId = () => {
@@ -505,10 +560,12 @@ async function loadInitialData() {
           enable_strm: data.enable_strm,
           danmu_api_url: data.danmu_api_url || 'http://localhost:9321',
           enable_multi_layer: data.enable_multi_layer || false,
+          multi_layer_count: data.multi_layer_count ?? 2,
           random_top_bottom: data.random_top_bottom || false,
           top_ratio: data.top_ratio || 0,
           bottom_ratio: data.bottom_ratio || 0,
-          density: data.density ?? 100
+          density: data.density ?? 100,
+          width_scale: data.width_scale ?? 1.0
         });
       initialConfigLoaded.value = true;
       successMessage.value = '成功加载配置';
@@ -536,10 +593,12 @@ async function loadInitialData() {
         enable_strm: props.initialConfig.enable_strm,
         danmu_api_url: props.initialConfig.danmu_api_url || 'http://localhost:9321',
         enable_multi_layer: props.initialConfig.enable_multi_layer || false,
+        multi_layer_count: props.initialConfig.multi_layer_count ?? 2,
         random_top_bottom: props.initialConfig.random_top_bottom || false,
       top_ratio: props.initialConfig.top_ratio || 0,
       bottom_ratio: props.initialConfig.bottom_ratio || 0,
-      density: props.initialConfig.density ?? 100
+      density: props.initialConfig.density ?? 100,
+      width_scale: props.initialConfig.width_scale ?? 1.0
       });
     }
     successMessage.value = null;
@@ -605,10 +664,12 @@ async function saveFullConfig() {
       enable_strm: editableConfig.enable_strm,
       danmu_api_url: editableConfig.danmu_api_url,
       enable_multi_layer: editableConfig.enable_multi_layer,
+      multi_layer_count: editableConfig.multi_layer_count,
       random_top_bottom: editableConfig.random_top_bottom,
       top_ratio: editableConfig.top_ratio,
       bottom_ratio: editableConfig.bottom_ratio,
-      density: editableConfig.density
+      density: editableConfig.density,
+      width_scale: editableConfig.width_scale
     };
 
     // 发送保存请求

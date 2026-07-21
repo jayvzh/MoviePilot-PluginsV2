@@ -32,7 +32,7 @@ class DanmuTV(_PluginBase):
     # 主题色
     plugin_color = "#3B5E8E"
     # 插件版本
-    plugin_version = "1.3"
+    plugin_version = "1.4"
     # 插件作者
     plugin_author = "jayvzh"
     # 作者主页
@@ -63,10 +63,12 @@ class DanmuTV(_PluginBase):
     _max_retry_times = 10
     _enable_retry_task = True
     _enable_multi_layer = False
+    _multi_layer_count = 2
     _random_top_bottom = False
     _top_ratio = 0
     _bottom_ratio = 0
     _density = 100
+    _width_scale = 1.0
     
     # 重试任务列表 - 存储格式: {file_path: {"retry_count": int, "last_attempt": datetime, "file_path": str}}
     _retry_tasks = {}
@@ -338,10 +340,12 @@ class DanmuTV(_PluginBase):
             self._enable_strm = config.get("enable_strm", True)
             self._danmu_api_url = config.get("danmu_api_url", self._DEFAULT_DANMU_API_URL)
             self._enable_multi_layer = config.get("enable_multi_layer", False)
+            self._multi_layer_count = int(config.get("multi_layer_count", 2))
             self._random_top_bottom = config.get("random_top_bottom", False)
             self._top_ratio = config.get("top_ratio", 0)
             self._bottom_ratio = config.get("bottom_ratio", 0)
             self._density = config.get("density", 100)
+            self._width_scale = float(config.get("width_scale", 1.0))
             generator.DanmuAPI.set_api_url(self._danmu_api_url)
             retry_tasks_str = config.get("retry_tasks", "{}")
             try:
@@ -574,10 +578,12 @@ class DanmuTV(_PluginBase):
             "enable_strm": self._enable_strm,
             "danmu_api_url": self._danmu_api_url,
             "enable_multi_layer": self._enable_multi_layer,
+            "multi_layer_count": self._multi_layer_count,
             "random_top_bottom": self._random_top_bottom,
             "top_ratio": self._top_ratio,
             "bottom_ratio": self._bottom_ratio,
-            "density": self._density
+            "density": self._density,
+            "width_scale": self._width_scale
         }
         
     def _save_config(self, config: dict):
@@ -597,10 +603,12 @@ class DanmuTV(_PluginBase):
             self._enable_strm = config.get("enable_strm", True)
             self._danmu_api_url = config.get("danmu_api_url", self._DEFAULT_DANMU_API_URL)
             self._enable_multi_layer = config.get("enable_multi_layer", False)
+            self._multi_layer_count = int(config.get("multi_layer_count", 2))
             self._random_top_bottom = config.get("random_top_bottom", False)
             self._top_ratio = config.get("top_ratio", 0)
             self._bottom_ratio = config.get("bottom_ratio", 0)
             self._density = config.get("density", 100)
+            self._width_scale = float(config.get("width_scale", 1.0))
             generator.DanmuAPI.set_api_url(self._danmu_api_url)
             
             retry_tasks_for_save = {}
@@ -628,9 +636,12 @@ class DanmuTV(_PluginBase):
                 "enable_strm": self._enable_strm,
                 "danmu_api_url": self._danmu_api_url,
                 "enable_multi_layer": self._enable_multi_layer,
+                "multi_layer_count": self._multi_layer_count,
                 "random_top_bottom": self._random_top_bottom,
                 "top_ratio": self._top_ratio,
                 "bottom_ratio": self._bottom_ratio,
+                "density": self._density,
+                "width_scale": self._width_scale,
                 "retry_tasks": json.dumps(retry_tasks_for_save)
             })
             
@@ -747,7 +758,9 @@ class DanmuTV(_PluginBase):
                 random_top_bottom=self._random_top_bottom,
                 top_ratio=self._top_ratio,
                 bottom_ratio=self._bottom_ratio,
-                density=self._density
+                density=self._density,
+                width_scale=self._width_scale,
+                multi_layer_count=self._multi_layer_count
             )
             
             # 检查弹幕生成结果
