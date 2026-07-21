@@ -267,6 +267,28 @@
                     class="text-caption"
                   ></v-text-field>
                 </v-col>
+                <v-col cols="12" md="6">
+                  <div class="setting-item d-flex align-center py-2">
+                    <v-icon icon="mdi-layers" size="small" :color="editableConfig.enable_multi_layer ? 'primary' : 'grey'" class="mr-3"></v-icon>
+                    <div class="setting-content flex-grow-1">
+                      <div class="d-flex justify-space-between align-center">
+                        <div>
+                          <div class="text-subtitle-2">启用多层弹幕</div>
+                          <div class="text-caption text-grey">开启后弹幕分为三层，具有不同速度和透明度，营造深度感</div>
+                        </div>
+                        <v-switch
+                          v-model="editableConfig.enable_multi_layer"
+                          color="primary"
+                          inset
+                          :disabled="saving"
+                          density="compact"
+                          hide-details
+                          class="small-switch"
+                        ></v-switch>
+                      </div>
+                    </div>
+                  </div>
+                </v-col>
               </v-row>
             </v-card-text>
           </v-card>
@@ -360,7 +382,8 @@ const editableConfig = reactive({
   enable_retry_task: true,
   screen_area: 'full',
   enable_strm: true,
-  danmu_api_url: 'http://localhost:9321'
+  danmu_api_url: 'http://localhost:9321',
+  enable_multi_layer: false
 });
 
 const getPluginId = () => {
@@ -385,20 +408,21 @@ async function loadInitialData() {
       Object.assign(serverFetchedConfig, JSON.parse(JSON.stringify(data)));
       // 更新编辑中的配置
       Object.assign(editableConfig, {
-        enable: data.enabled,
-        width: data.width,
-        height: data.height,
-        fontsize: data.fontsize,
-        alpha: data.alpha,
-        duration: data.duration,
-        path: data.path,
-        useTmdbID: data.useTmdbID,
-        auto_scrape: data.auto_scrape,
-        enable_retry_task: data.enable_retry_task,
-        screen_area: data.screen_area,
-        enable_strm: data.enable_strm,
-        danmu_api_url: data.danmu_api_url || 'http://localhost:9321'
-      });
+          enable: data.enabled,
+          width: data.width,
+          height: data.height,
+          fontsize: data.fontsize,
+          alpha: data.alpha,
+          duration: data.duration,
+          path: data.path,
+          useTmdbID: data.useTmdbID,
+          auto_scrape: data.auto_scrape,
+          enable_retry_task: data.enable_retry_task,
+          screen_area: data.screen_area,
+          enable_strm: data.enable_strm,
+          danmu_api_url: data.danmu_api_url || 'http://localhost:9321',
+          enable_multi_layer: data.enable_multi_layer || false
+        });
       initialConfigLoaded.value = true;
       successMessage.value = '成功加载配置';
     } else {
@@ -423,7 +447,8 @@ async function loadInitialData() {
         enable_retry_task: props.initialConfig.enable_retry_task,
         screen_area: props.initialConfig.screen_area,
         enable_strm: props.initialConfig.enable_strm,
-        danmu_api_url: props.initialConfig.danmu_api_url || 'http://localhost:9321'
+        danmu_api_url: props.initialConfig.danmu_api_url || 'http://localhost:9321',
+        enable_multi_layer: props.initialConfig.enable_multi_layer || false
       });
     }
     successMessage.value = null;
@@ -487,7 +512,8 @@ async function saveFullConfig() {
       enable_retry_task: editableConfig.enable_retry_task,
       screen_area: editableConfig.screen_area,
       enable_strm: editableConfig.enable_strm,
-      danmu_api_url: editableConfig.danmu_api_url
+      danmu_api_url: editableConfig.danmu_api_url,
+      enable_multi_layer: editableConfig.enable_multi_layer
     };
 
     // 发送保存请求
@@ -518,20 +544,21 @@ async function saveFullConfig() {
 function resetConfigToFetched() {
   if (initialConfigLoaded.value) {
     Object.assign(editableConfig, {
-      enable: serverFetchedConfig.enabled,
-      width: serverFetchedConfig.width,
-      height: serverFetchedConfig.height,
-      fontsize: serverFetchedConfig.fontsize,
-      alpha: serverFetchedConfig.alpha,
-      duration: serverFetchedConfig.duration,
-      path: serverFetchedConfig.path,
-      useTmdbID: serverFetchedConfig.useTmdbID,
-      auto_scrape: serverFetchedConfig.auto_scrape,
-      enable_retry_task: serverFetchedConfig.enable_retry_task,
-      screen_area: serverFetchedConfig.screen_area,
-      enable_strm: serverFetchedConfig.enable_strm,
-      danmu_api_url: serverFetchedConfig.danmu_api_url || 'http://localhost:9321'
-    });
+        enable: serverFetchedConfig.enabled,
+        width: serverFetchedConfig.width,
+        height: serverFetchedConfig.height,
+        fontsize: serverFetchedConfig.fontsize,
+        alpha: serverFetchedConfig.alpha,
+        duration: serverFetchedConfig.duration,
+        path: serverFetchedConfig.path,
+        useTmdbID: serverFetchedConfig.useTmdbID,
+        auto_scrape: serverFetchedConfig.auto_scrape,
+        enable_retry_task: serverFetchedConfig.enable_retry_task,
+        screen_area: serverFetchedConfig.screen_area,
+        enable_strm: serverFetchedConfig.enable_strm,
+        danmu_api_url: serverFetchedConfig.danmu_api_url || 'http://localhost:9321',
+        enable_multi_layer: serverFetchedConfig.enable_multi_layer || false
+      });
     error.value = null;
     successMessage.value = '配置已重置为上次加载的状态';
     if (form.value) form.value.resetValidation();

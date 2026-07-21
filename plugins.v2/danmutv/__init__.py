@@ -32,7 +32,7 @@ class DanmuTV(_PluginBase):
     # 主题色
     plugin_color = "#3B5E8E"
     # 插件版本
-    plugin_version = "1.1"
+    plugin_version = "1.2"
     # 插件作者
     plugin_author = "jayvzh"
     # 作者主页
@@ -49,7 +49,7 @@ class DanmuTV(_PluginBase):
     _width = 1920
     _height = 1080
     _fontsize = 48
-    _alpha = 0.7
+    _alpha = 0.8
     _duration = 14
     _path = ''
     _max_threads = 2
@@ -62,6 +62,7 @@ class DanmuTV(_PluginBase):
     _min_danmu_count = 100
     _max_retry_times = 10
     _enable_retry_task = True
+    _enable_multi_layer = False
     
     # 重试任务列表 - 存储格式: {file_path: {"retry_count": int, "last_attempt": datetime, "file_path": str}}
     _retry_tasks = {}
@@ -332,6 +333,7 @@ class DanmuTV(_PluginBase):
             self._screen_area = config.get("screen_area", "full")
             self._enable_strm = config.get("enable_strm", True)
             self._danmu_api_url = config.get("danmu_api_url", self._DEFAULT_DANMU_API_URL)
+            self._enable_multi_layer = config.get("enable_multi_layer", False)
             generator.DanmuAPI.set_api_url(self._danmu_api_url)
             retry_tasks_str = config.get("retry_tasks", "{}")
             try:
@@ -562,7 +564,8 @@ class DanmuTV(_PluginBase):
             "enable_retry_task": self._enable_retry_task,
             "screen_area": self._screen_area,
             "enable_strm": self._enable_strm,
-            "danmu_api_url": self._danmu_api_url
+            "danmu_api_url": self._danmu_api_url,
+            "enable_multi_layer": self._enable_multi_layer
         }
         
     def _save_config(self, config: dict):
@@ -581,6 +584,7 @@ class DanmuTV(_PluginBase):
             self._screen_area = config.get("screen_area", "full")
             self._enable_strm = config.get("enable_strm", True)
             self._danmu_api_url = config.get("danmu_api_url", self._DEFAULT_DANMU_API_URL)
+            self._enable_multi_layer = config.get("enable_multi_layer", False)
             generator.DanmuAPI.set_api_url(self._danmu_api_url)
             
             retry_tasks_for_save = {}
@@ -608,6 +612,7 @@ class DanmuTV(_PluginBase):
                 "screen_area": self._screen_area,
                 "enable_strm": self._enable_strm,
                 "danmu_api_url": self._danmu_api_url,
+                "enable_multi_layer": self._enable_multi_layer,
                 "retry_tasks": json.dumps(retry_tasks_for_save)
             })
             
@@ -719,7 +724,8 @@ class DanmuTV(_PluginBase):
                 60 if use_short_cache_ttl else None,
                 self._screen_area,
                 manual_comment_id=manual_comment_id,
-                tmdb_id_type=tmdb_id_type
+                tmdb_id_type=tmdb_id_type,
+                enable_multi_layer=self._enable_multi_layer
             )
             
             # 检查弹幕生成结果
