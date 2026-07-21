@@ -711,7 +711,7 @@ class DanmuTV(_PluginBase):
                 self._fontsize,
                 self._alpha,
                 self._duration,
-                self._onlyFromBili,
+                False,
                 self._useTmdbID,
                 tmdb_id,
                 episode,
