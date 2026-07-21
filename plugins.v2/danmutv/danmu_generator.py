@@ -314,10 +314,16 @@ class DanmuAPI:
                 return None
             
             target_episode = episode if episode is not None else file_episode
-            logger.info(f"从文件名提取: title={title}, episode={target_episode}")
+            logger.info(f"从文件名提取: title={title}, episode={target_episode}, episode_type={type(target_episode).__name__}")
             
             if target_episode is not None:
-                match_file_name = f"{title}.S01E{target_episode:02d}"
+                try:
+                    target_episode_int = int(target_episode)
+                    logger.info(f"集数转换成功: {target_episode} -> {target_episode_int}, type={type(target_episode_int).__name__}")
+                except (ValueError, TypeError) as e:
+                    logger.error(f"集数格式错误: {target_episode}, type={type(target_episode).__name__}, error={e}")
+                    return None
+                match_file_name = f"{title}.S01E{target_episode_int:02d}"
                 logger.info(f"使用 S01E 格式匹配: {match_file_name}")
                 
                 url = f"{cls.get_api_url()}/api/v2/match"

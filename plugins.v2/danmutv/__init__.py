@@ -673,7 +673,8 @@ class DanmuTV(_PluginBase):
                     logger.info(f"识别为电影，使用电影类型TMDB匹配: {tmdb_id}")
                 if meta.episode:
                     try:
-                        episode = meta.episode.split('E')[-1]
+                        episode_str = meta.episode.split('E')[-1]
+                        episode = int(episode_str) if episode_str.isdigit() else None
                     except Exception:
                         episode = None
                 release_date = media_info.release_date
