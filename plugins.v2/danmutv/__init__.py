@@ -605,7 +605,6 @@ class DanmuTV(_PluginBase):
                 "alpha": self._alpha,
                 "duration": self._duration,
                 "path": self._path,
-                "onlyFromBili": self._onlyFromBili,
                 "useTmdbID": self._useTmdbID,
                 "auto_scrape": self._auto_scrape,
                 "enable_retry_task": self._enable_retry_task,
