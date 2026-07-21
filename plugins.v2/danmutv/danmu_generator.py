@@ -57,9 +57,9 @@ class DanmuAPI:
         "User-Agent": "Moviepilot/plugins 2.0.0"
     }
     MANUAL_MATCH_FILE = ".dandan.anime.json"
-    TIMEOUT = (10, 60)
+    TIMEOUT = (5, 30)
 
-    _api_url = "http://jvh6.cocn.in:8321/as2345791"
+    _api_url = "http://localhost:9321"
 
     @classmethod
     def set_api_url(cls, url: str):

@@ -32,7 +32,7 @@ class DanmuTV(_PluginBase):
     # 主题色
     plugin_color = "#3B5E8E"
     # 插件版本
-    plugin_version = "1.0"
+    plugin_version = "1.1"
     # 插件作者
     plugin_author = "jayvzh"
     # 作者主页
@@ -58,7 +58,8 @@ class DanmuTV(_PluginBase):
     _auto_scrape = True
     _screen_area = 'quarter'
     _enable_strm = True
-    _danmu_api_url = "http://jvh6.cocn.in:8321/as2345791"
+    _danmu_api_url = "http://localhost:9321"
+    _DEFAULT_DANMU_API_URL = "http://localhost:9321"
     _min_danmu_count = 100
     _max_retry_times = 10
     _enable_retry_task = True
@@ -332,7 +333,7 @@ class DanmuTV(_PluginBase):
             self._enable_retry_task = config.get("enable_retry_task", True)
             self._screen_area = config.get("screen_area", "full")
             self._enable_strm = config.get("enable_strm", True)
-            self._danmu_api_url = config.get("danmu_api_url", "http://jvh6.cocn.in:8321/as2345791")
+            self._danmu_api_url = config.get("danmu_api_url", self._DEFAULT_DANMU_API_URL)
             generator.DanmuAPI.set_api_url(self._danmu_api_url)
             retry_tasks_str = config.get("retry_tasks", "{}")
             try:
@@ -533,6 +534,14 @@ class DanmuTV(_PluginBase):
             "auth": "bear",
             "summary": "移除手动匹配",
             "description": "移除指定目录的手动匹配"
+        },
+        {
+            "path": "/api_status",
+            "endpoint": self.check_api_status,
+            "methods": ["GET"],
+            "auth": "bear",
+            "summary": "检测弹幕API连通性",
+            "description": "测试当前配置的弹幕API后端是否可访问"
         }
         ]
      
@@ -575,7 +584,7 @@ class DanmuTV(_PluginBase):
             self._enable_retry_task = config.get("enable_retry_task", True)
             self._screen_area = config.get("screen_area", "full")
             self._enable_strm = config.get("enable_strm", True)
-            self._danmu_api_url = config.get("danmu_api_url", "http://jvh6.cocn.in:8321/as2345791")
+            self._danmu_api_url = config.get("danmu_api_url", self._DEFAULT_DANMU_API_URL)
             generator.DanmuAPI.set_api_url(self._danmu_api_url)
             
             retry_tasks_for_save = {}
@@ -1290,6 +1299,29 @@ class DanmuTV(_PluginBase):
             logger.error(f"生成弹幕失败: {e}")
             return schemas.Response(success=False, message=f"生成弹幕失败: {str(e)}")
 
+    def check_api_status(self, api_url: Optional[str] = None) -> schemas.Response:
+        """
+        检测弹幕API后端连通性
+        """
+        target_url = (api_url or self._danmu_api_url or self._DEFAULT_DANMU_API_URL).rstrip('/')
+        try:
+            resp = requests.get(
+                f"{target_url}/api/v2/search/anime",
+                params={"keyword": "test"},
+                headers=generator.DanmuAPI.HEADERS,
+                timeout=5
+            )
+            if resp.status_code == 200:
+                return schemas.Response(success=True, message=f"API可访问 ({target_url})", data={"url": target_url})
+            else:
+                return schemas.Response(success=False, message=f"API返回异常 HTTP {resp.status_code}", data={"url": target_url})
+        except requests.exceptions.ConnectionError:
+            return schemas.Response(success=False, message=f"无法连接到API ({target_url})，请检查地址/网络/Docker IPv6", data={"url": target_url})
+        except requests.exceptions.Timeout:
+            return schemas.Response(success=False, message=f"连接API超时 ({target_url})", data={"url": target_url})
+        except Exception as e:
+            return schemas.Response(success=False, message=f"API检测失败: {str(e)}", data={"url": target_url})
+
     def search_danmu(self, keyword: Optional[str] = None, type: Optional[str] = None) -> schemas.Response:
         """
         搜索弹幕资源
@@ -1307,7 +1339,7 @@ class DanmuTV(_PluginBase):
                 f"{generator.DanmuAPI.get_api_url()}/api/v2/search/anime",
                 params=params,
                 headers=generator.DanmuAPI.HEADERS,
-                timeout=15
+                timeout=(5, 15)
             )
             if response.status_code != 200:
                 logger.error(f"搜索弹幕失败，HTTP {response.status_code}: {response.text}")
@@ -1320,6 +1352,12 @@ class DanmuTV(_PluginBase):
                 return schemas.Response(success=False, message=message, data=data)
 
             return schemas.Response(success=True, data=data)
+        except requests.exceptions.ConnectionError:
+            logger.error(f"无法连接弹幕API: {generator.DanmuAPI.get_api_url()}")
+            return schemas.Response(success=False, message="无法连接弹幕API，请检查API地址或网络/Docker IPv6配置")
+        except requests.exceptions.Timeout:
+            logger.error("搜索弹幕资源超时")
+            return schemas.Response(success=False, message="连接弹幕API超时")
         except Exception as e:
             logger.error(f"搜索弹幕资源失败: {e}")
             return schemas.Response(success=False, message=f"搜索失败: {str(e)}")

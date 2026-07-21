@@ -180,17 +180,33 @@
                   </div>
                 </v-col>
                 <v-col cols="12">
-                  <v-text-field
-                    v-model="editableConfig.danmu_api_url"
-                    label="弹幕API地址"
-                    variant="outlined"
-                    hint="弹幕API后端地址，包含TOKEN路径"
-                    persistent-hint
-                    prepend-inner-icon="mdi-web"
-                    :disabled="saving"
-                    density="compact"
-                    class="text-caption"
-                  ></v-text-field>
+                  <div class="d-flex align-center flex-row ga-2">
+                    <v-text-field
+                      v-model="editableConfig.danmu_api_url"
+                      label="弹幕API地址"
+                      variant="outlined"
+                      hint="弹幕API后端地址，Docker环境请使用IPv4地址"
+                      persistent-hint
+                      prepend-inner-icon="mdi-web"
+                      :disabled="saving || testingApi"
+                      density="compact"
+                      class="text-caption flex-grow-1"
+                    ></v-text-field>
+                    <v-btn
+                      color="secondary"
+                      variant="tonal"
+                      size="small"
+                      :loading="testingApi"
+                      :disabled="saving || testingApi || !editableConfig.danmu_api_url"
+                      @click="testApiConnection"
+                      prepend-icon="mdi-connection"
+                    >
+                      测试连接
+                    </v-btn>
+                  </div>
+                  <v-alert v-if="apiTestResult" :type="apiTestResult.ok ? 'success' : 'error'" density="compact" variant="tonal" class="mt-1 text-caption" closable @click:close="apiTestResult = null">
+                    {{ apiTestResult.message }}
+                  </v-alert>
                 </v-col>
               </v-row>
             </v-card-text>
@@ -344,6 +360,8 @@ const isFormValid = ref(true);
 const error = ref(null);
 const successMessage = ref(null);
 const saving = ref(false);
+const testingApi = ref(false);
+const apiTestResult = ref(null);
 const initialConfigLoaded = ref(false);
 
 // Holds the config as fetched from server, used for reset
@@ -364,8 +382,10 @@ const editableConfig = reactive({
   enable_retry_task: true,
   screen_area: 'full',
   enable_strm: true,
-  danmu_api_url: 'http://jvh6.cocn.in:8321/as2345791'
+  danmu_api_url: 'http://localhost:9321'
 });
+
+const DEFAULT_API_URL = 'http://localhost:9321';
 
 const getPluginId = () => {
   return "DanmuTV";
@@ -402,7 +422,7 @@ async function loadInitialData() {
         enable_retry_task: data.enable_retry_task,
         screen_area: data.screen_area,
         enable_strm: data.enable_strm,
-        danmu_api_url: data.danmu_api_url || 'http://jvh6.cocn.in:8321/as2345791'
+        danmu_api_url: data.danmu_api_url || DEFAULT_API_URL
       });
       initialConfigLoaded.value = true;
       successMessage.value = '成功加载配置';
@@ -429,13 +449,34 @@ async function loadInitialData() {
         enable_retry_task: props.initialConfig.enable_retry_task,
         screen_area: props.initialConfig.screen_area,
         enable_strm: props.initialConfig.enable_strm,
-        danmu_api_url: props.initialConfig.danmu_api_url || 'http://jvh6.cocn.in:8321/as2345791'
+        danmu_api_url: props.initialConfig.danmu_api_url || DEFAULT_API_URL
       });
     }
     successMessage.value = null;
   } finally {
     saving.value = false;
     setTimeout(() => { successMessage.value = null; error.value = null; }, 4000);
+  }
+}
+
+async function testApiConnection() {
+  if (!editableConfig.danmu_api_url) return;
+  testingApi.value = true;
+  apiTestResult.value = null;
+  try {
+    const res = await props.api.get(`plugin/${getPluginId()}/api_status`, {
+      params: { api_url: editableConfig.danmu_api_url }
+    });
+    if (res && res.success) {
+      apiTestResult.value = { ok: true, message: res.message || 'API连接成功' };
+    } else {
+      apiTestResult.value = { ok: false, message: res?.message || 'API连接失败' };
+    }
+  } catch (err) {
+    apiTestResult.value = { ok: false, message: err?.message || 'API检测请求失败' };
+  } finally {
+    testingApi.value = false;
+    setTimeout(() => { if (apiTestResult.value?.ok) apiTestResult.value = null; }, 5000);
   }
 }
 
@@ -517,7 +558,7 @@ function resetConfigToFetched() {
       enable_retry_task: serverFetchedConfig.enable_retry_task,
       screen_area: serverFetchedConfig.screen_area,
       enable_strm: serverFetchedConfig.enable_strm,
-      danmu_api_url: serverFetchedConfig.danmu_api_url || 'http://jvh6.cocn.in:8321/as2345791'
+      danmu_api_url: serverFetchedConfig.danmu_api_url || DEFAULT_API_URL
     });
     error.value = null;
     successMessage.value = '配置已重置为上次加载的状态';
@@ -546,7 +587,7 @@ onMounted(() => {
       enable_retry_task: props.initialConfig.enable_retry_task,
       screen_area: props.initialConfig.screen_area,
       enable_strm: props.initialConfig.enable_strm,
-      danmu_api_url: props.initialConfig.danmu_api_url || 'http://jvh6.cocn.in:8321/as2345791'
+      danmu_api_url: props.initialConfig.danmu_api_url || DEFAULT_API_URL
     });
   }
   loadInitialData();
