@@ -935,22 +935,14 @@ class DanmuTV(_PluginBase):
         with self._retry_lock:
             self._retry_save_deferred = True
             self._retry_save_pending = False
-        threading_list = []
+        # 批量刮削串行执行，避免并发请求触发API限流(429)
         try:
             for file_path in files:
                 with self._scrape_lock:
                     self._scrape_progress["current_file"] = os.path.basename(file_path)
-                if len(threading_list) >= self._max_threads:
-                    threading_list[0].join()
-                    threading_list.pop(0)
-                thread = threading.Thread(
-                    target=self._scrape_one,
-                    args=(file_path,)
-                )
-                thread.start()
-                threading_list.append(thread)
-            for thread in threading_list:
-                thread.join()
+                self._scrape_one(file_path)
+                # 文件间短暂间隔，给API缓冲时间
+                time.sleep(0.5)
         finally:
             with self._scrape_lock:
                 started_at = self._scrape_progress.get("started_at")

@@ -61,12 +61,14 @@ class DanmuAPI:
     }
     MANUAL_MATCH_FILE = ".dandan.anime.json"
     TIMEOUT = (10, 60)
-    _MIN_REQUEST_INTERVAL = 0.5
+    _MIN_REQUEST_INTERVAL = 1.0
 
     _api_url = "http://localhost:9321"
     _api_token = ""
     _last_request_time = 0
     _request_lock = threading.Lock()
+    # 429全局冷却：收到限流后，所有请求等待至该时间戳
+    _rate_limit_until = 0.0
 
     @classmethod
     def set_api_url(cls, full_url: str):
@@ -92,10 +94,22 @@ class DanmuAPI:
     def _throttle_request(cls):
         with cls._request_lock:
             now = time.time()
+            # 429全局冷却：如果在冷却期内，等待至冷却结束
+            if cls._rate_limit_until > now:
+                wait = cls._rate_limit_until - now
+                logger.info(f"API限流冷却中，等待{wait:.1f}秒")
+                time.sleep(wait)
+                now = time.time()
             elapsed = now - cls._last_request_time
             if elapsed < cls._MIN_REQUEST_INTERVAL:
                 time.sleep(cls._MIN_REQUEST_INTERVAL - elapsed)
             cls._last_request_time = time.time()
+
+    @classmethod
+    def _trigger_rate_limit(cls, cooldown: float = 5.0):
+        """触发429限流冷却，所有线程在冷却期内暂停请求"""
+        with cls._request_lock:
+            cls._rate_limit_until = max(cls._rate_limit_until, time.time() + cooldown)
 
     @classmethod
     def _manual_file_path(cls, directory: str) -> str:
@@ -343,15 +357,17 @@ class DanmuAPI:
                 
                 url = f"{cls.get_api_url()}/api/v2/match"
                 response = None
-                for retry in range(3):
+                for retry in range(4):
                     cls._throttle_request()
                     response = requests.post(url, json={"fileName": match_file_name}, 
                                              headers=cls.HEADERS, timeout=cls.TIMEOUT)
                     if response.status_code == 200:
                         break
                     elif response.status_code == 429:
-                        logger.warning(f"匹配请求被限流(429)，等待3秒后重试 ({retry+1}/3)")
-                        time.sleep(3)
+                        wait = 3 * (2 ** retry)  # 指数退避：3s, 6s, 12s, 24s
+                        logger.warning(f"匹配请求被限流(429)，等待{wait}秒后重试 ({retry+1}/4)")
+                        cls._trigger_rate_limit(wait)
+                        time.sleep(wait)
                     else:
                         break
                 
@@ -453,14 +469,16 @@ class DanmuAPI:
                 url += f"&cache_ttl={cache_ttl}"
             
             response = None
-            for retry in range(3):
+            for retry in range(4):
                 cls._throttle_request()
                 response = requests.get(url, headers=cls.HEADERS, timeout=cls.TIMEOUT)
                 if response.status_code == 200:
                     break
                 elif response.status_code == 429:
-                    logger.warning(f"获取弹幕被限流(429)，等待3秒后重试 ({retry+1}/3)")
-                    time.sleep(3)
+                    wait = 3 * (2 ** retry)  # 指数退避：3s, 6s, 12s, 24s
+                    logger.warning(f"获取弹幕被限流(429)，等待{wait}秒后重试 ({retry+1}/4)")
+                    cls._trigger_rate_limit(wait)
+                    time.sleep(wait)
                 else:
                     break
             
