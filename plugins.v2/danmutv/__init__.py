@@ -53,7 +53,6 @@ class DanmuTV(_PluginBase):
     _duration = 14
     _path = ''
     _max_threads = 10
-    _onlyFromBili = False
     _useTmdbID = True
     _auto_scrape = True
     _screen_area = 'quarter'
@@ -327,7 +326,6 @@ class DanmuTV(_PluginBase):
             self._alpha = config.get("alpha", 0.8)
             self._duration = config.get("duration", 15)
             self._path = config.get("path", "")
-            self._onlyFromBili = config.get("onlyFromBili", False)
             self._useTmdbID = config.get("useTmdbID", True)
             self._auto_scrape = config.get("auto_scrape", False)
             self._enable_retry_task = config.get("enable_retry_task", True)
@@ -559,7 +557,6 @@ class DanmuTV(_PluginBase):
             "alpha": self._alpha,
             "duration": self._duration,
             "path": self._path,
-            "onlyFromBili": self._onlyFromBili,
             "useTmdbID": self._useTmdbID,
             "auto_scrape": self._auto_scrape,
             "enable_retry_task": self._enable_retry_task,
@@ -578,7 +575,6 @@ class DanmuTV(_PluginBase):
             self._alpha = config.get("alpha", 0.8)
             self._duration = config.get("duration", 15)
             self._path = config.get("path", "")
-            self._onlyFromBili = config.get("onlyFromBili", False)
             self._useTmdbID = config.get("useTmdbID", True)
             self._auto_scrape = config.get("auto_scrape", False)
             self._enable_retry_task = config.get("enable_retry_task", True)

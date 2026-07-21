@@ -60,13 +60,26 @@ class DanmuAPI:
     TIMEOUT = (10, 60)
 
     _api_url = "http://localhost:9321"
+    _api_token = ""
 
     @classmethod
-    def set_api_url(cls, url: str):
-        cls._api_url = url.rstrip('/')
+    def set_api_url(cls, full_url: str):
+        import re
+        
+        full_url = full_url.rstrip('/')
+        
+        match = re.match(r'^(https?://[^/]+)(/[^/]+)?$', full_url)
+        if match:
+            cls._api_url = match.group(1)
+            cls._api_token = match.group(2).lstrip('/') if match.group(2) else ""
+        else:
+            cls._api_url = full_url
+            cls._api_token = ""
 
     @classmethod
     def get_api_url(cls) -> str:
+        if cls._api_token:
+            return f"{cls._api_url}/{cls._api_token}"
         return cls._api_url
 
     @classmethod
@@ -245,7 +258,7 @@ class DanmuAPI:
         :return: 搜索结果
         """
         try:
-            url = f"{cls._api_url}/api/v2/search/anime"
+            url = f"{cls.get_api_url()}/api/v2/search/anime"
             params = {"keyword": keyword}
             if media_type and media_type != "all":
                 params["type"] = media_type
@@ -257,24 +270,6 @@ class DanmuAPI:
             return None
         except Exception as e:
             logger.error(f"搜索弹幕失败: {e}")
-            return None
-
-    @classmethod
-    def get_bangumi(cls, bangumi_id: int) -> Optional[Dict]:
-        """
-        获取番剧/影视信息
-        :param bangumi_id: 番剧ID
-        :return: 番剧信息
-        """
-        try:
-            url = f"{cls._api_url}/api/v2/bangumi/{bangumi_id}"
-            response = requests.get(url, headers=cls.HEADERS, timeout=cls.TIMEOUT)
-            if response.status_code == 200:
-                return response.json()
-            logger.error(f"获取番剧信息失败: {response.text}")
-            return None
-        except Exception as e:
-            logger.error(f"获取番剧信息失败: {e}")
             return None
 
     @classmethod
@@ -291,14 +286,12 @@ class DanmuAPI:
         try:
             file_name = os.path.basename(file_path)
             
-            # 检查是否为.strm文件
             if StrmProcessor.is_strm_file(file_path):
                 logger.info(f"检测到.strm文件: {file_path}")
                 strm_url = StrmProcessor.get_strm_url(file_path)
                 if strm_url:
                     logger.info(f"STRM文件指向: {strm_url}")
             
-            # 先检查手动匹配
             video_dir = os.path.dirname(file_path)
             manual_mapping = cls._load_manual_mapping(video_dir)
             if manual_mapping:
@@ -313,17 +306,32 @@ class DanmuAPI:
                     logger.info(f"使用目录手动匹配ID: {manual_comment}")
                     return manual_comment
             
-            # 使用新API的 /api/v2/match 接口
-            url = f"{cls._api_url}/api/v2/match"
-            response = requests.post(url, json={"fileName": file_name}, headers=cls.HEADERS,
-                                     timeout=cls.TIMEOUT)
+            title = cls._extract_title_from_filename(file_name)
+            file_episode = cls._extract_episode_from_filename(file_name)
             
-            if response.status_code == 200:
-                result = response.json()
-                if result.get("success") and result.get("isMatched") and result.get("matches"):
-                    return str(result["matches"][0]["episodeId"])
+            if not title:
+                logger.warning(f"无法从文件名提取标题: {file_name}")
+                return None
             
-            # 如果使用TMDB ID且提供了TMDB ID，尝试使用TMDB ID匹配（新API不支持，仅作兼容）
+            target_episode = episode if episode is not None else file_episode
+            logger.info(f"从文件名提取: title={title}, episode={target_episode}")
+            
+            if target_episode is not None:
+                match_file_name = f"{title}.S01E{target_episode:02d}"
+                logger.info(f"使用 S01E 格式匹配: {match_file_name}")
+                
+                url = f"{cls.get_api_url()}/api/v2/match"
+                response = requests.post(url, json={"fileName": match_file_name}, 
+                                         headers=cls.HEADERS, timeout=cls.TIMEOUT)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get("success") and result.get("isMatched") and result.get("matches"):
+                        episode_id = str(result["matches"][0]["episodeId"])
+                        episode_title = result["matches"][0].get("episodeTitle", "")
+                        logger.info(f"匹配成功: episodeId={episode_id}, title={episode_title}")
+                        return episode_id
+            
             if use_tmdb_id and tmdb_id is not None:
                 comment_id = cls.search_by_tmdb_id(tmdb_id, episode, tmdb_id_type)
                 if comment_id:
@@ -333,6 +341,56 @@ class DanmuAPI:
         except Exception as e:
             logger.error(f"获取弹幕ID失败: {e}")
             return None
+
+    @staticmethod
+    def _extract_title_from_filename(file_name: str) -> Optional[str]:
+        """从文件名提取标题（移除年份、集数、扩展名等）"""
+        import re
+        
+        name = os.path.splitext(file_name)[0]
+        
+        # 移除常见的集数标识
+        patterns = [
+            r'\.S\d+E\d+',
+            r'\.E\d+',
+            r'\.\d{4}',
+            r'-\s*\d+',
+            r'\s*\(\d+\)',
+            r'\[[^\]]+\]',
+            r'\([^)]+\)',
+        ]
+        
+        for pattern in patterns:
+            name = re.sub(pattern, '', name)
+        
+        # 移除扩展名和多余的点/空格
+        name = name.strip('. ').strip()
+        
+        return name if name else None
+
+    @staticmethod
+    def _extract_episode_from_filename(file_name: str) -> Optional[int]:
+        """从文件名提取集数"""
+        import re
+        
+        # 匹配 E01, E02, S01E01 等格式
+        match = re.search(r'[sS](\d+)[eE](\d+)', file_name, re.IGNORECASE)
+        if match:
+            return int(match.group(2))
+        
+        # 匹配 E01, E02 等格式（无前缀季数）
+        match = re.search(r'[eE](\d+)', file_name, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+        
+        # 匹配 .数字. 格式（如 .01.）
+        match = re.search(r'\.(\d{2,3})\.', file_name)
+        if match:
+            num = int(match.group(1))
+            if num <= 999:
+                return num
+        
+        return None
 
     @staticmethod
     def get_title_from_nfo(file_path: str) -> Optional[str]:
@@ -359,7 +417,7 @@ class DanmuAPI:
         :return: 弹幕数据
         """
         try:
-            url = f"{cls._api_url}/api/v2/comment/{comment_id}?format=json&duration=true"
+            url = f"{cls.get_api_url()}/api/v2/comment/{comment_id}?format=json&duration=true"
             if cache_ttl is not None:
                 url += f"&cache_ttl={cache_ttl}"
             response = requests.get(url, headers=cls.HEADERS, timeout=cls.TIMEOUT)

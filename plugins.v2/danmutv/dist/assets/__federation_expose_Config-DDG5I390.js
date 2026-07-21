@@ -20,11 +20,8 @@ const _hoisted_13 = { class: "d-flex justify-space-between align-center" };
 const _hoisted_14 = { class: "setting-item d-flex align-center py-2" };
 const _hoisted_15 = { class: "setting-content flex-grow-1" };
 const _hoisted_16 = { class: "d-flex justify-space-between align-center" };
-const _hoisted_17 = { class: "setting-item d-flex align-center py-2" };
-const _hoisted_18 = { class: "setting-content flex-grow-1" };
-const _hoisted_19 = { class: "d-flex justify-space-between align-center" };
-const _hoisted_20 = { class: "d-flex align-center" };
-const _hoisted_21 = { class: "d-flex align-center flex-row ga-2" };
+const _hoisted_17 = { class: "d-flex align-center" };
+const _hoisted_18 = { class: "d-flex align-center flex-row ga-2" };
 
 const {ref,reactive,onMounted} = await importShared('vue');
 
@@ -70,7 +67,6 @@ const editableConfig = reactive({
   alpha: 0.8,
   duration: 15,
   path: '',
-  onlyFromBili: false,
   useTmdbID: true,
   auto_scrape: true,
   enable_retry_task: true,
@@ -106,7 +102,6 @@ async function loadInitialData() {
         alpha: data.alpha,
         duration: data.duration,
         path: data.path,
-        onlyFromBili: data.onlyFromBili,
         useTmdbID: data.useTmdbID,
         auto_scrape: data.auto_scrape,
         enable_retry_task: data.enable_retry_task,
@@ -133,7 +128,6 @@ async function loadInitialData() {
         alpha: props.initialConfig.alpha,
         duration: props.initialConfig.duration,
         path: props.initialConfig.path,
-        onlyFromBili: props.initialConfig.onlyFromBili,
         useTmdbID: props.initialConfig.useTmdbID,
         auto_scrape: props.initialConfig.auto_scrape,
         enable_retry_task: props.initialConfig.enable_retry_task,
@@ -196,7 +190,6 @@ async function saveFullConfig() {
       alpha: editableConfig.alpha,
       duration: editableConfig.duration,
       path: editableConfig.path,
-      onlyFromBili: editableConfig.onlyFromBili,
       useTmdbID: editableConfig.useTmdbID,
       auto_scrape: editableConfig.auto_scrape,
       enable_retry_task: editableConfig.enable_retry_task,
@@ -240,13 +233,12 @@ function resetConfigToFetched() {
       alpha: serverFetchedConfig.alpha,
       duration: serverFetchedConfig.duration,
       path: serverFetchedConfig.path,
-      onlyFromBili: serverFetchedConfig.onlyFromBili,
       useTmdbID: serverFetchedConfig.useTmdbID,
       auto_scrape: serverFetchedConfig.auto_scrape,
       enable_retry_task: serverFetchedConfig.enable_retry_task,
       screen_area: serverFetchedConfig.screen_area,
       enable_strm: serverFetchedConfig.enable_strm,
-      danmu_api_url: serverFetchedConfig.danmu_api_url || DEFAULT_API_URL
+      danmu_api_url: serverFetchedConfig.danmu_api_url || 'http://localhost:9321'
     });
     error.value = null;
     successMessage.value = '配置已重置为上次加载的状态';
@@ -269,13 +261,12 @@ onMounted(() => {
       alpha: props.initialConfig.alpha,
       duration: props.initialConfig.duration,
       path: props.initialConfig.path,
-      onlyFromBili: props.initialConfig.onlyFromBili,
       useTmdbID: props.initialConfig.useTmdbID,
       auto_scrape: props.initialConfig.auto_scrape,
       enable_retry_task: props.initialConfig.enable_retry_task,
       screen_area: props.initialConfig.screen_area,
       enable_strm: props.initialConfig.enable_strm,
-      danmu_api_url: props.initialConfig.danmu_api_url || DEFAULT_API_URL
+      danmu_api_url: props.initialConfig.danmu_api_url || 'http://localhost:9321'
     });
   }
   loadInitialData();
@@ -314,7 +305,7 @@ return (_ctx, _cache) => {
               color: "primary",
               size: "small"
             }),
-            _cache[16] || (_cache[16] = _createElementVNode("span", null, "影视弹幕刮削配置", -1))
+            _cache[15] || (_cache[15] = _createElementVNode("span", null, "影视弹幕刮削配置", -1))
           ]),
           _: 1
         }),
@@ -354,7 +345,7 @@ return (_ctx, _cache) => {
               ref_key: "form",
               ref: form,
               modelValue: isFormValid.value,
-              "onUpdate:modelValue": _cache[13] || (_cache[13] = $event => ((isFormValid).value = $event)),
+              "onUpdate:modelValue": _cache[12] || (_cache[12] = $event => ((isFormValid).value = $event)),
               onSubmit: _withModifiers(saveFullConfig, ["prevent"])
             }, {
               default: _withCtx(() => [
@@ -371,7 +362,7 @@ return (_ctx, _cache) => {
                           color: "primary",
                           size: "small"
                         }),
-                        _cache[17] || (_cache[17] = _createElementVNode("span", null, "基本设置", -1))
+                        _cache[16] || (_cache[16] = _createElementVNode("span", null, "基本设置", -1))
                       ]),
                       _: 1
                     }),
@@ -393,7 +384,7 @@ return (_ctx, _cache) => {
                                   }, null, 8, ["color"]),
                                   _createElementVNode("div", _hoisted_3, [
                                     _createElementVNode("div", _hoisted_4, [
-                                      _cache[18] || (_cache[18] = _createElementVNode("div", null, [
+                                      _cache[17] || (_cache[17] = _createElementVNode("div", null, [
                                         _createElementVNode("div", { class: "text-subtitle-2" }, "启用插件"),
                                         _createElementVNode("div", { class: "text-caption text-grey" }, "是否启用弹幕刮削功能")
                                       ], -1)),
@@ -420,20 +411,20 @@ return (_ctx, _cache) => {
                               default: _withCtx(() => [
                                 _createElementVNode("div", _hoisted_5, [
                                   _createVNode(_component_v_icon, {
-                                    icon: "mdi-bilibili",
+                                    icon: "mdi-database",
                                     size: "small",
-                                    color: editableConfig.onlyFromBili ? 'info' : 'grey',
+                                    color: editableConfig.useTmdbID ? 'info' : 'grey',
                                     class: "mr-3"
                                   }, null, 8, ["color"]),
                                   _createElementVNode("div", _hoisted_6, [
                                     _createElementVNode("div", _hoisted_7, [
-                                      _cache[19] || (_cache[19] = _createElementVNode("div", null, [
-                                        _createElementVNode("div", { class: "text-subtitle-2" }, "仅从B站获取"),
-                                        _createElementVNode("div", { class: "text-caption text-grey" }, "是否仅从B站获取弹幕")
+                                      _cache[18] || (_cache[18] = _createElementVNode("div", null, [
+                                        _createElementVNode("div", { class: "text-subtitle-2" }, "使用TMDB ID"),
+                                        _createElementVNode("div", { class: "text-caption text-grey" }, "是否使用TMDB ID进行匹配")
                                       ], -1)),
                                       _createVNode(_component_v_switch, {
-                                        modelValue: editableConfig.onlyFromBili,
-                                        "onUpdate:modelValue": _cache[1] || (_cache[1] = $event => ((editableConfig.onlyFromBili) = $event)),
+                                        modelValue: editableConfig.useTmdbID,
+                                        "onUpdate:modelValue": _cache[1] || (_cache[1] = $event => ((editableConfig.useTmdbID) = $event)),
                                         color: "info",
                                         inset: "",
                                         disabled: saving.value,
@@ -454,21 +445,21 @@ return (_ctx, _cache) => {
                               default: _withCtx(() => [
                                 _createElementVNode("div", _hoisted_8, [
                                   _createVNode(_component_v_icon, {
-                                    icon: "mdi-database",
+                                    icon: "mdi-auto-fix",
                                     size: "small",
-                                    color: editableConfig.useTmdbID ? 'info' : 'grey',
+                                    color: editableConfig.auto_scrape ? 'success' : 'grey',
                                     class: "mr-3"
                                   }, null, 8, ["color"]),
                                   _createElementVNode("div", _hoisted_9, [
                                     _createElementVNode("div", _hoisted_10, [
-                                      _cache[20] || (_cache[20] = _createElementVNode("div", null, [
-                                        _createElementVNode("div", { class: "text-subtitle-2" }, "使用TMDB ID"),
-                                        _createElementVNode("div", { class: "text-caption text-grey" }, "是否使用TMDB ID进行匹配")
+                                      _cache[19] || (_cache[19] = _createElementVNode("div", null, [
+                                        _createElementVNode("div", { class: "text-subtitle-2" }, "入库自动刮削"),
+                                        _createElementVNode("div", { class: "text-caption text-grey" }, "是否在媒体入库时自动刮削弹幕")
                                       ], -1)),
                                       _createVNode(_component_v_switch, {
-                                        modelValue: editableConfig.useTmdbID,
-                                        "onUpdate:modelValue": _cache[2] || (_cache[2] = $event => ((editableConfig.useTmdbID) = $event)),
-                                        color: "info",
+                                        modelValue: editableConfig.auto_scrape,
+                                        "onUpdate:modelValue": _cache[2] || (_cache[2] = $event => ((editableConfig.auto_scrape) = $event)),
+                                        color: "success",
                                         inset: "",
                                         disabled: saving.value,
                                         density: "compact",
@@ -488,21 +479,21 @@ return (_ctx, _cache) => {
                               default: _withCtx(() => [
                                 _createElementVNode("div", _hoisted_11, [
                                   _createVNode(_component_v_icon, {
-                                    icon: "mdi-auto-fix",
+                                    icon: "mdi-repeat",
                                     size: "small",
-                                    color: editableConfig.auto_scrape ? 'success' : 'grey',
+                                    color: editableConfig.enable_retry_task ? 'warning' : 'grey',
                                     class: "mr-3"
                                   }, null, 8, ["color"]),
                                   _createElementVNode("div", _hoisted_12, [
                                     _createElementVNode("div", _hoisted_13, [
-                                      _cache[21] || (_cache[21] = _createElementVNode("div", null, [
-                                        _createElementVNode("div", { class: "text-subtitle-2" }, "入库自动刮削"),
-                                        _createElementVNode("div", { class: "text-caption text-grey" }, "是否在媒体入库时自动刮削弹幕")
+                                      _cache[20] || (_cache[20] = _createElementVNode("div", null, [
+                                        _createElementVNode("div", { class: "text-subtitle-2" }, "启用重试任务"),
+                                        _createElementVNode("div", { class: "text-caption text-grey" }, "弹幕数量不足时自动加入重试列表")
                                       ], -1)),
                                       _createVNode(_component_v_switch, {
-                                        modelValue: editableConfig.auto_scrape,
-                                        "onUpdate:modelValue": _cache[3] || (_cache[3] = $event => ((editableConfig.auto_scrape) = $event)),
-                                        color: "success",
+                                        modelValue: editableConfig.enable_retry_task,
+                                        "onUpdate:modelValue": _cache[3] || (_cache[3] = $event => ((editableConfig.enable_retry_task) = $event)),
+                                        color: "warning",
                                         inset: "",
                                         disabled: saving.value,
                                         density: "compact",
@@ -522,49 +513,15 @@ return (_ctx, _cache) => {
                               default: _withCtx(() => [
                                 _createElementVNode("div", _hoisted_14, [
                                   _createVNode(_component_v_icon, {
-                                    icon: "mdi-repeat",
-                                    size: "small",
-                                    color: editableConfig.enable_retry_task ? 'warning' : 'grey',
-                                    class: "mr-3"
-                                  }, null, 8, ["color"]),
-                                  _createElementVNode("div", _hoisted_15, [
-                                    _createElementVNode("div", _hoisted_16, [
-                                      _cache[22] || (_cache[22] = _createElementVNode("div", null, [
-                                        _createElementVNode("div", { class: "text-subtitle-2" }, "启用重试任务"),
-                                        _createElementVNode("div", { class: "text-caption text-grey" }, "弹幕数量不足时自动加入重试列表")
-                                      ], -1)),
-                                      _createVNode(_component_v_switch, {
-                                        modelValue: editableConfig.enable_retry_task,
-                                        "onUpdate:modelValue": _cache[4] || (_cache[4] = $event => ((editableConfig.enable_retry_task) = $event)),
-                                        color: "warning",
-                                        inset: "",
-                                        disabled: saving.value,
-                                        density: "compact",
-                                        "hide-details": "",
-                                        class: "small-switch"
-                                      }, null, 8, ["modelValue", "disabled"])
-                                    ])
-                                  ])
-                                ])
-                              ]),
-                              _: 1
-                            }),
-                            _createVNode(_component_v_col, {
-                              cols: "12",
-                              md: "6"
-                            }, {
-                              default: _withCtx(() => [
-                                _createElementVNode("div", _hoisted_17, [
-                                  _createVNode(_component_v_icon, {
                                     icon: "mdi-file-video-outline",
                                     size: "small",
                                     color: editableConfig.enable_strm ? 'info' : 'grey',
                                     class: "mr-3"
                                   }, null, 8, ["color"]),
-                                  _createElementVNode("div", _hoisted_18, [
-                                    _createElementVNode("div", _hoisted_19, [
-                                      _createElementVNode("div", _hoisted_20, [
-                                        _cache[24] || (_cache[24] = _createElementVNode("div", null, [
+                                  _createElementVNode("div", _hoisted_15, [
+                                    _createElementVNode("div", _hoisted_16, [
+                                      _createElementVNode("div", _hoisted_17, [
+                                        _cache[22] || (_cache[22] = _createElementVNode("div", null, [
                                           _createElementVNode("div", { class: "text-subtitle-2" }, "启用STRM文件刮削"),
                                           _createElementVNode("div", { class: "text-caption text-grey" }, "是否支持.strm流媒体文件的弹幕刮削")
                                         ], -1)),
@@ -579,7 +536,7 @@ return (_ctx, _cache) => {
                                             }), null, 16)
                                           ]),
                                           default: _withCtx(() => [
-                                            _cache[23] || (_cache[23] = _createElementVNode("div", { class: "tooltip-content" }, [
+                                            _cache[21] || (_cache[21] = _createElementVNode("div", { class: "tooltip-content" }, [
                                               _createElementVNode("div", { class: "text-subtitle-2 mb-1" }, "STRM文件刮削说明"),
                                               _createElementVNode("div", { class: "text-caption" }, [
                                                 _createElementVNode("div", { class: "mb-1" }, [
@@ -602,7 +559,7 @@ return (_ctx, _cache) => {
                                       ]),
                                       _createVNode(_component_v_switch, {
                                         modelValue: editableConfig.enable_strm,
-                                        "onUpdate:modelValue": _cache[5] || (_cache[5] = $event => ((editableConfig.enable_strm) = $event)),
+                                        "onUpdate:modelValue": _cache[4] || (_cache[4] = $event => ((editableConfig.enable_strm) = $event)),
                                         color: "info",
                                         inset: "",
                                         disabled: saving.value,
@@ -618,10 +575,10 @@ return (_ctx, _cache) => {
                             }),
                             _createVNode(_component_v_col, { cols: "12" }, {
                               default: _withCtx(() => [
-                                _createElementVNode("div", _hoisted_21, [
+                                _createElementVNode("div", _hoisted_18, [
                                   _createVNode(_component_v_text_field, {
                                     modelValue: editableConfig.danmu_api_url,
-                                    "onUpdate:modelValue": _cache[6] || (_cache[6] = $event => ((editableConfig.danmu_api_url) = $event)),
+                                    "onUpdate:modelValue": _cache[5] || (_cache[5] = $event => ((editableConfig.danmu_api_url) = $event)),
                                     label: "弹幕API地址",
                                     variant: "outlined",
                                     hint: "弹幕API后端地址",
@@ -640,7 +597,7 @@ return (_ctx, _cache) => {
                                     onClick: testApiConnection,
                                     "prepend-icon": "mdi-connection"
                                   }, {
-                                    default: _withCtx(() => [...(_cache[25] || (_cache[25] = [
+                                    default: _withCtx(() => [...(_cache[23] || (_cache[23] = [
                                       _createTextVNode(" 测试连接 ", -1)
                                     ]))]),
                                     _: 1
@@ -654,7 +611,7 @@ return (_ctx, _cache) => {
                                       variant: "tonal",
                                       class: "mt-1 text-caption",
                                       closable: "",
-                                      "onClick:close": _cache[7] || (_cache[7] = $event => (apiTestResult.value = null))
+                                      "onClick:close": _cache[6] || (_cache[6] = $event => (apiTestResult.value = null))
                                     }, {
                                       default: _withCtx(() => [
                                         _createTextVNode(_toDisplayString(apiTestResult.value.message), 1)
@@ -687,7 +644,7 @@ return (_ctx, _cache) => {
                           color: "primary",
                           size: "small"
                         }),
-                        _cache[26] || (_cache[26] = _createElementVNode("span", null, "弹幕参数设置", -1))
+                        _cache[24] || (_cache[24] = _createElementVNode("span", null, "弹幕参数设置", -1))
                       ]),
                       _: 1
                     }),
@@ -702,7 +659,7 @@ return (_ctx, _cache) => {
                               default: _withCtx(() => [
                                 _createVNode(_component_v_text_field, {
                                   modelValue: editableConfig.fontsize,
-                                  "onUpdate:modelValue": _cache[8] || (_cache[8] = $event => ((editableConfig.fontsize) = $event)),
+                                  "onUpdate:modelValue": _cache[7] || (_cache[7] = $event => ((editableConfig.fontsize) = $event)),
                                   modelModifiers: { number: true },
                                   label: "字体大小",
                                   type: "number",
@@ -726,7 +683,7 @@ return (_ctx, _cache) => {
                               default: _withCtx(() => [
                                 _createVNode(_component_v_select, {
                                   modelValue: editableConfig.screen_area,
-                                  "onUpdate:modelValue": _cache[9] || (_cache[9] = $event => ((editableConfig.screen_area) = $event)),
+                                  "onUpdate:modelValue": _cache[8] || (_cache[8] = $event => ((editableConfig.screen_area) = $event)),
                                   label: "弹幕显示区域",
                                   variant: "outlined",
                                   items: [
@@ -751,7 +708,7 @@ return (_ctx, _cache) => {
                               default: _withCtx(() => [
                                 _createVNode(_component_v_text_field, {
                                   modelValue: editableConfig.alpha,
-                                  "onUpdate:modelValue": _cache[10] || (_cache[10] = $event => ((editableConfig.alpha) = $event)),
+                                  "onUpdate:modelValue": _cache[9] || (_cache[9] = $event => ((editableConfig.alpha) = $event)),
                                   modelModifiers: { number: true },
                                   label: "透明度",
                                   type: "number",
@@ -777,7 +734,7 @@ return (_ctx, _cache) => {
                               default: _withCtx(() => [
                                 _createVNode(_component_v_text_field, {
                                   modelValue: editableConfig.duration,
-                                  "onUpdate:modelValue": _cache[11] || (_cache[11] = $event => ((editableConfig.duration) = $event)),
+                                  "onUpdate:modelValue": _cache[10] || (_cache[10] = $event => ((editableConfig.duration) = $event)),
                                   modelModifiers: { number: true },
                                   label: "持续时间",
                                   type: "number",
@@ -816,7 +773,7 @@ return (_ctx, _cache) => {
                           color: "primary",
                           size: "small"
                         }),
-                        _cache[27] || (_cache[27] = _createElementVNode("span", null, "手动控制媒体库路径", -1))
+                        _cache[25] || (_cache[25] = _createElementVNode("span", null, "手动控制媒体库路径", -1))
                       ]),
                       _: 1
                     }),
@@ -824,7 +781,7 @@ return (_ctx, _cache) => {
                       default: _withCtx(() => [
                         _createVNode(_component_v_textarea, {
                           modelValue: editableConfig.path,
-                          "onUpdate:modelValue": _cache[12] || (_cache[12] = $event => ((editableConfig.path) = $event)),
+                          "onUpdate:modelValue": _cache[11] || (_cache[11] = $event => ((editableConfig.path) = $event)),
                           label: "/",
                           variant: "outlined",
                           hint: "每行一个路径,在状态页手动控制刮削",
@@ -854,7 +811,7 @@ return (_ctx, _cache) => {
                           class: "mr-2",
                           size: "small"
                         }),
-                        _cache[28] || (_cache[28] = _createElementVNode("span", { class: "text-caption" }, " 此插件用于生成影视弹幕字幕文件，支持电视剧、电影、动漫等多种媒体类型。弹幕来源为自定义弹幕API后端。 ", -1))
+                        _cache[26] || (_cache[26] = _createElementVNode("span", { class: "text-caption" }, " 此插件用于生成影视弹幕字幕文件，支持电视剧、电影、动漫等多种媒体类型。弹幕来源为自定义弹幕API后端。 ", -1))
                       ]),
                       _: 1
                     })
@@ -872,13 +829,13 @@ return (_ctx, _cache) => {
           default: _withCtx(() => [
             _createVNode(_component_v_btn, {
               color: "info",
-              onClick: _cache[14] || (_cache[14] = $event => (emit('switch'))),
+              onClick: _cache[13] || (_cache[13] = $event => (emit('switch'))),
               "prepend-icon": "mdi-view-dashboard",
               disabled: saving.value,
               variant: "text",
               size: "small"
             }, {
-              default: _withCtx(() => [...(_cache[29] || (_cache[29] = [
+              default: _withCtx(() => [...(_cache[27] || (_cache[27] = [
                 _createTextVNode("状态页", -1)
               ]))]),
               _: 1
@@ -892,7 +849,7 @@ return (_ctx, _cache) => {
               "prepend-icon": "mdi-restore",
               size: "small"
             }, {
-              default: _withCtx(() => [...(_cache[30] || (_cache[30] = [
+              default: _withCtx(() => [...(_cache[28] || (_cache[28] = [
                 _createTextVNode("重置", -1)
               ]))]),
               _: 1
@@ -906,20 +863,20 @@ return (_ctx, _cache) => {
               variant: "text",
               size: "small"
             }, {
-              default: _withCtx(() => [...(_cache[31] || (_cache[31] = [
+              default: _withCtx(() => [...(_cache[29] || (_cache[29] = [
                 _createTextVNode("保存配置", -1)
               ]))]),
               _: 1
             }, 8, ["disabled", "loading"]),
             _createVNode(_component_v_btn, {
               color: "grey",
-              onClick: _cache[15] || (_cache[15] = $event => (emit('close'))),
+              onClick: _cache[14] || (_cache[14] = $event => (emit('close'))),
               "prepend-icon": "mdi-close",
               disabled: saving.value,
               variant: "text",
               size: "small"
             }, {
-              default: _withCtx(() => [...(_cache[32] || (_cache[32] = [
+              default: _withCtx(() => [...(_cache[30] || (_cache[30] = [
                 _createTextVNode("关闭", -1)
               ]))]),
               _: 1
@@ -935,6 +892,6 @@ return (_ctx, _cache) => {
 }
 
 };
-const Config = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-8889a0cf"]]);
+const Config = /*#__PURE__*/_export_sfc(_sfc_main, [['__scopeId',"data-v-2c815d31"]]);
 
 export { Config as default };

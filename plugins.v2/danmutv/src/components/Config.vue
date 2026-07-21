@@ -44,28 +44,6 @@
                 </v-col>
                 <v-col cols="12" md="6">
                   <div class="setting-item d-flex align-center py-2">
-                    <v-icon icon="mdi-bilibili" size="small" :color="editableConfig.onlyFromBili ? 'info' : 'grey'" class="mr-3"></v-icon>
-                    <div class="setting-content flex-grow-1">
-                      <div class="d-flex justify-space-between align-center">
-                        <div>
-                          <div class="text-subtitle-2">仅从B站获取</div>
-                          <div class="text-caption text-grey">是否仅从B站获取弹幕</div>
-                        </div>
-                        <v-switch
-                          v-model="editableConfig.onlyFromBili"
-                          color="info"
-                          inset
-                          :disabled="saving"
-                          density="compact"
-                          hide-details
-                          class="small-switch"
-                        ></v-switch>
-                      </div>
-                    </div>
-                  </div>
-                </v-col>
-                <v-col cols="12" md="6">
-                  <div class="setting-item d-flex align-center py-2">
                     <v-icon icon="mdi-database" size="small" :color="editableConfig.useTmdbID ? 'info' : 'grey'" class="mr-3"></v-icon>
                     <div class="setting-content flex-grow-1">
                       <div class="d-flex justify-space-between align-center">
@@ -376,7 +354,6 @@ const editableConfig = reactive({
   alpha: 0.8,
   duration: 15,
   path: '',
-  onlyFromBili: false,
   useTmdbID: true,
   auto_scrape: true,
   enable_retry_task: true,
@@ -414,7 +391,6 @@ async function loadInitialData() {
         alpha: data.alpha,
         duration: data.duration,
         path: data.path,
-        onlyFromBili: data.onlyFromBili,
         useTmdbID: data.useTmdbID,
         auto_scrape: data.auto_scrape,
         enable_retry_task: data.enable_retry_task,
@@ -441,7 +417,6 @@ async function loadInitialData() {
         alpha: props.initialConfig.alpha,
         duration: props.initialConfig.duration,
         path: props.initialConfig.path,
-        onlyFromBili: props.initialConfig.onlyFromBili,
         useTmdbID: props.initialConfig.useTmdbID,
         auto_scrape: props.initialConfig.auto_scrape,
         enable_retry_task: props.initialConfig.enable_retry_task,
@@ -506,7 +481,6 @@ async function saveFullConfig() {
       alpha: editableConfig.alpha,
       duration: editableConfig.duration,
       path: editableConfig.path,
-      onlyFromBili: editableConfig.onlyFromBili,
       useTmdbID: editableConfig.useTmdbID,
       auto_scrape: editableConfig.auto_scrape,
       enable_retry_task: editableConfig.enable_retry_task,
@@ -550,13 +524,12 @@ function resetConfigToFetched() {
       alpha: serverFetchedConfig.alpha,
       duration: serverFetchedConfig.duration,
       path: serverFetchedConfig.path,
-      onlyFromBili: serverFetchedConfig.onlyFromBili,
       useTmdbID: serverFetchedConfig.useTmdbID,
       auto_scrape: serverFetchedConfig.auto_scrape,
       enable_retry_task: serverFetchedConfig.enable_retry_task,
       screen_area: serverFetchedConfig.screen_area,
       enable_strm: serverFetchedConfig.enable_strm,
-      danmu_api_url: serverFetchedConfig.danmu_api_url || DEFAULT_API_URL
+      danmu_api_url: serverFetchedConfig.danmu_api_url || 'http://localhost:9321'
     });
     error.value = null;
     successMessage.value = '配置已重置为上次加载的状态';
@@ -579,13 +552,12 @@ onMounted(() => {
       alpha: props.initialConfig.alpha,
       duration: props.initialConfig.duration,
       path: props.initialConfig.path,
-      onlyFromBili: props.initialConfig.onlyFromBili,
       useTmdbID: props.initialConfig.useTmdbID,
       auto_scrape: props.initialConfig.auto_scrape,
       enable_retry_task: props.initialConfig.enable_retry_task,
       screen_area: props.initialConfig.screen_area,
       enable_strm: props.initialConfig.enable_strm,
-      danmu_api_url: props.initialConfig.danmu_api_url || DEFAULT_API_URL
+      danmu_api_url: props.initialConfig.danmu_api_url || 'http://localhost:9321'
     });
   }
   loadInitialData();
