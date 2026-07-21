@@ -11,7 +11,6 @@ __pycache__/
 .idea
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -27,6 +26,13 @@ share/python-wheels/
 *.egg
 MANIFEST
 test.py
+
+# Node / frontend
+node_modules/
+# 全局忽略 dist，但保留插件内构建产物（MoviePilot V2 插件加载入口）
+dist/
+!plugins.v2/**/dist/
+!plugins.v2/**/dist/**
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
