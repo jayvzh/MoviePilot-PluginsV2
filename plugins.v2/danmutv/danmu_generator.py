@@ -607,7 +607,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     def convert_comments_to_ass(cls, comments: List[Dict], output_file: str, width: int,
                               height: int, fontface: str, fontsize: float, alpha: float, duration: float, screen_area: str = 'full',
                               enable_multi_layer: bool = False,
-                              random_top_bottom: bool = False, top_ratio: int = 0, bottom_ratio: int = 0):
+                              random_top_bottom: bool = False, top_ratio: int = 0, bottom_ratio: int = 0,
+                              density: int = 100):
         styleid = 'Danmu'
         
         # 根据屏幕区域计算有效高度和轨道数
@@ -650,6 +651,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         dropped_bottom = 0
         dropped_top = 0
         dropped_error = 0
+        dropped_density = 0
         
         with open(output_file, 'w', encoding='utf-8') as f:
             cls.write_ass_head(f, width, height, fontface, fontsize, alpha, styleid, multi_layer=enable_multi_layer)
@@ -670,8 +672,17 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     if not text:
                         dropped_empty += 1
                         continue
-                        
-                    color_hex = f'&H{color & 0xFFFFFF:06X}'
+
+                    # 密度控制：随机丢弃部分弹幕（类似fn-danmu的density参数）
+                    if density < 100 and random.random() * 100 >= density:
+                        dropped_density += 1
+                        continue
+
+                    # ASS颜色格式为 &HBBGGGRR&（BGR），需将RGB转换为BGR
+                    r = (color >> 16) & 0xFF
+                    g = (color >> 8) & 0xFF
+                    b = color & 0xFF
+                    color_hex = f'&H{b:02X}{g:02X}{r:02X}'
                     styles = ''
                     
                     if pos == 1:  # 滚动弹幕
@@ -692,16 +703,16 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                                 duration_factor = 0.75 + random.random() * 0.15
                                 layer_style = f'{styleid}Front'
                                 layer_fontsize = fontsize * 1.2
-                            elif r < 0.75:  # 中层55% (0.20+0.55=0.75)
+                            elif r < 0.80:  # 中层60% (0.20+0.60=0.80)
                                 layer = 'mid'
                                 layer_num = 5
-                                duration_factor = 0.95 + random.random() * 0.2
+                                duration_factor = 1.10 + random.random() * 0.2
                                 layer_style = f'{styleid}Mid'
                                 layer_fontsize = fontsize
                             else:
                                 layer = 'back'
                                 layer_num = 0
-                                duration_factor = 1.25 + random.random() * 0.2
+                                duration_factor = 1.35 + random.random() * 0.2
                                 layer_style = f'{styleid}Back'
                                 layer_fontsize = fontsize * 0.9
                             
@@ -804,9 +815,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     logger.error(f"处理弹幕数据失败: {e}, 弹幕数据: {comment}")
                     continue
             
-            total_dropped = dropped_format + dropped_empty + dropped_scroll + dropped_bottom + dropped_top + dropped_error
+            total_dropped = dropped_format + dropped_empty + dropped_density + dropped_scroll + dropped_bottom + dropped_top + dropped_error
             logger.info(f"弹幕统计 - 总数:{len(comments)}, 写入:{written_count}, 丢弃:{total_dropped} "
-                        f"(格式错误:{dropped_format}, 空文本:{dropped_empty}, 滚动满:{dropped_scroll}, "
+                        f"(格式错误:{dropped_format}, 空文本:{dropped_empty}, 密度丢弃:{dropped_density}, 滚动满:{dropped_scroll}, "
                         f"底部满:{dropped_bottom}, 顶部满:{dropped_top}, 异常:{dropped_error})")
             logger.info('弹幕生成成功 - ' + output_file)
 
@@ -1385,7 +1396,8 @@ def danmu_generator(file_path: str, width: int = 1920, height: int = 1080,
                    episode: Optional[int] = None, cache_ttl: Optional[int] = None,
                    screen_area: str = 'full', manual_comment_id: Optional[str] = None,
                    tmdb_id_type: int = 0, enable_multi_layer: bool = False,
-                   random_top_bottom: bool = False, top_ratio: int = 0, bottom_ratio: int = 0) -> Optional[str]:
+                   random_top_bottom: bool = False, top_ratio: int = 0, bottom_ratio: int = 0,
+                   density: int = 100) -> Optional[str]:
     try:
         comment_id = manual_comment_id or DanmuAPI.get_comment_id(
             file_path, use_tmdb_id, tmdb_id, episode, cache_ttl, tmdb_id_type
@@ -1423,7 +1435,8 @@ def danmu_generator(file_path: str, width: int = 1920, height: int = 1080,
             enable_multi_layer=enable_multi_layer,
             random_top_bottom=random_top_bottom,
             top_ratio=top_ratio,
-            bottom_ratio=bottom_ratio
+            bottom_ratio=bottom_ratio,
+            density=density
         )
 
         # 处理字幕合并

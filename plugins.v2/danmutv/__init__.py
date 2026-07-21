@@ -66,6 +66,7 @@ class DanmuTV(_PluginBase):
     _random_top_bottom = False
     _top_ratio = 0
     _bottom_ratio = 0
+    _density = 100
     
     # 重试任务列表 - 存储格式: {file_path: {"retry_count": int, "last_attempt": datetime, "file_path": str}}
     _retry_tasks = {}
@@ -340,6 +341,7 @@ class DanmuTV(_PluginBase):
             self._random_top_bottom = config.get("random_top_bottom", False)
             self._top_ratio = config.get("top_ratio", 0)
             self._bottom_ratio = config.get("bottom_ratio", 0)
+            self._density = config.get("density", 100)
             generator.DanmuAPI.set_api_url(self._danmu_api_url)
             retry_tasks_str = config.get("retry_tasks", "{}")
             try:
@@ -574,7 +576,8 @@ class DanmuTV(_PluginBase):
             "enable_multi_layer": self._enable_multi_layer,
             "random_top_bottom": self._random_top_bottom,
             "top_ratio": self._top_ratio,
-            "bottom_ratio": self._bottom_ratio
+            "bottom_ratio": self._bottom_ratio,
+            "density": self._density
         }
         
     def _save_config(self, config: dict):
@@ -597,6 +600,7 @@ class DanmuTV(_PluginBase):
             self._random_top_bottom = config.get("random_top_bottom", False)
             self._top_ratio = config.get("top_ratio", 0)
             self._bottom_ratio = config.get("bottom_ratio", 0)
+            self._density = config.get("density", 100)
             generator.DanmuAPI.set_api_url(self._danmu_api_url)
             
             retry_tasks_for_save = {}
@@ -742,7 +746,8 @@ class DanmuTV(_PluginBase):
                 enable_multi_layer=self._enable_multi_layer,
                 random_top_bottom=self._random_top_bottom,
                 top_ratio=self._top_ratio,
-                bottom_ratio=self._bottom_ratio
+                bottom_ratio=self._bottom_ratio,
+                density=self._density
             )
             
             # 检查弹幕生成结果

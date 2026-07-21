@@ -342,6 +342,32 @@
                     </div>
                   </div>
                 </v-col>
+                <v-col cols="12" md="6">
+                  <div class="setting-item d-flex align-center py-2">
+                    <v-icon icon="mdi-chart-bell-curve" size="small" color="grey" class="mr-3"></v-icon>
+                    <div class="setting-content flex-grow-1">
+                      <div class="d-flex justify-space-between align-center">
+                        <div>
+                          <div class="text-subtitle-2">弹幕密度</div>
+                          <div class="text-caption text-grey">随机保留指定比例的弹幕，降低可减少拥挤（100%为全部保留）</div>
+                        </div>
+                        <v-text-field
+                          v-model.number="editableConfig.density"
+                          type="number"
+                          density="compact"
+                          variant="outlined"
+                          hide-details
+                          :min="10"
+                          :max="100"
+                          :step="5"
+                          suffix="%"
+                          style="max-width: 130px;"
+                          :disabled="saving"
+                        ></v-text-field>
+                      </div>
+                    </div>
+                  </div>
+                </v-col>
               </v-row>
             </v-card-text>
           </v-card>
@@ -439,7 +465,8 @@ const editableConfig = reactive({
   enable_multi_layer: false,
   random_top_bottom: false,
   top_ratio: 0,
-  bottom_ratio: 0
+  bottom_ratio: 0,
+  density: 100
 });
 
 const getPluginId = () => {
@@ -480,7 +507,8 @@ async function loadInitialData() {
           enable_multi_layer: data.enable_multi_layer || false,
           random_top_bottom: data.random_top_bottom || false,
           top_ratio: data.top_ratio || 0,
-          bottom_ratio: data.bottom_ratio || 0
+          bottom_ratio: data.bottom_ratio || 0,
+          density: data.density ?? 100
         });
       initialConfigLoaded.value = true;
       successMessage.value = '成功加载配置';
@@ -509,8 +537,9 @@ async function loadInitialData() {
         danmu_api_url: props.initialConfig.danmu_api_url || 'http://localhost:9321',
         enable_multi_layer: props.initialConfig.enable_multi_layer || false,
         random_top_bottom: props.initialConfig.random_top_bottom || false,
-        top_ratio: props.initialConfig.top_ratio || 0,
-        bottom_ratio: props.initialConfig.bottom_ratio || 0
+      top_ratio: props.initialConfig.top_ratio || 0,
+      bottom_ratio: props.initialConfig.bottom_ratio || 0,
+      density: props.initialConfig.density ?? 100
       });
     }
     successMessage.value = null;
@@ -578,7 +607,8 @@ async function saveFullConfig() {
       enable_multi_layer: editableConfig.enable_multi_layer,
       random_top_bottom: editableConfig.random_top_bottom,
       top_ratio: editableConfig.top_ratio,
-      bottom_ratio: editableConfig.bottom_ratio
+      bottom_ratio: editableConfig.bottom_ratio,
+      density: editableConfig.density
     };
 
     // 发送保存请求
@@ -625,7 +655,8 @@ function resetConfigToFetched() {
         enable_multi_layer: serverFetchedConfig.enable_multi_layer || false,
         random_top_bottom: serverFetchedConfig.random_top_bottom || false,
         top_ratio: serverFetchedConfig.top_ratio || 0,
-        bottom_ratio: serverFetchedConfig.bottom_ratio || 0
+        bottom_ratio: serverFetchedConfig.bottom_ratio || 0,
+        density: serverFetchedConfig.density ?? 100
       });
     error.value = null;
     successMessage.value = '配置已重置为上次加载的状态';
