@@ -52,7 +52,7 @@ class DanmuTV(_PluginBase):
     _alpha = 0.7
     _duration = 14
     _path = ''
-    _max_threads = 10
+    _max_threads = 2
     _useTmdbID = True
     _auto_scrape = True
     _screen_area = 'quarter'

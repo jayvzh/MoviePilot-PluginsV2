@@ -5,6 +5,8 @@ import re
 import hashlib
 import subprocess
 import json
+import time
+import threading
 from datetime import datetime
 from typing import Optional, Dict, List, Tuple, Any
 from dataclasses import dataclass
@@ -58,9 +60,12 @@ class DanmuAPI:
     }
     MANUAL_MATCH_FILE = ".dandan.anime.json"
     TIMEOUT = (10, 60)
+    _MIN_REQUEST_INTERVAL = 0.5
 
     _api_url = "http://localhost:9321"
     _api_token = ""
+    _last_request_time = 0
+    _request_lock = threading.Lock()
 
     @classmethod
     def set_api_url(cls, full_url: str):
@@ -81,6 +86,15 @@ class DanmuAPI:
         if cls._api_token:
             return f"{cls._api_url}/{cls._api_token}"
         return cls._api_url
+
+    @classmethod
+    def _throttle_request(cls):
+        with cls._request_lock:
+            now = time.time()
+            elapsed = now - cls._last_request_time
+            if elapsed < cls._MIN_REQUEST_INTERVAL:
+                time.sleep(cls._MIN_REQUEST_INTERVAL - elapsed)
+            cls._last_request_time = time.time()
 
     @classmethod
     def _manual_file_path(cls, directory: str) -> str:
@@ -327,10 +341,20 @@ class DanmuAPI:
                 logger.info(f"使用 S01E 格式匹配: {match_file_name}")
                 
                 url = f"{cls.get_api_url()}/api/v2/match"
-                response = requests.post(url, json={"fileName": match_file_name}, 
-                                         headers=cls.HEADERS, timeout=cls.TIMEOUT)
+                response = None
+                for retry in range(3):
+                    cls._throttle_request()
+                    response = requests.post(url, json={"fileName": match_file_name}, 
+                                             headers=cls.HEADERS, timeout=cls.TIMEOUT)
+                    if response.status_code == 200:
+                        break
+                    elif response.status_code == 429:
+                        logger.warning(f"匹配请求被限流(429)，等待3秒后重试 ({retry+1}/3)")
+                        time.sleep(3)
+                    else:
+                        break
                 
-                if response.status_code == 200:
+                if response and response.status_code == 200:
                     result = response.json()
                     if result.get("success") and result.get("isMatched") and result.get("matches"):
                         episode_id = str(result["matches"][0]["episodeId"])
@@ -426,11 +450,21 @@ class DanmuAPI:
             url = f"{cls.get_api_url()}/api/v2/comment/{comment_id}?format=json&duration=true"
             if cache_ttl is not None:
                 url += f"&cache_ttl={cache_ttl}"
-            response = requests.get(url, headers=cls.HEADERS, timeout=cls.TIMEOUT)
-            if response.status_code == 200:
+            
+            response = None
+            for retry in range(3):
+                cls._throttle_request()
+                response = requests.get(url, headers=cls.HEADERS, timeout=cls.TIMEOUT)
+                if response.status_code == 200:
+                    break
+                elif response.status_code == 429:
+                    logger.warning(f"获取弹幕被限流(429)，等待3秒后重试 ({retry+1}/3)")
+                    time.sleep(3)
+                else:
+                    break
+            
+            if response and response.status_code == 200:
                 result = response.json()
-                # 新API返回格式: {comments: [...], videoDuration: number}
-                # 兼容旧格式返回结构
                 if "comments" not in result:
                     result = {"comments": result}
                 return result
