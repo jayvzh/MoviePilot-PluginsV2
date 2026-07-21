@@ -1298,14 +1298,15 @@ class DanmuTV(_PluginBase):
     def check_api_status(self, api_url: Optional[str] = None) -> schemas.Response:
         target_url = (api_url or self._danmu_api_url or "http://localhost:9321").rstrip('/')
         try:
-            resp = requests.post(
-                f"{target_url}/api/v2/match",
-                json={"fileName": "测试.S01E01"},
+            resp = requests.get(
+                f"{target_url}/api/logs",
                 headers=generator.DanmuAPI.HEADERS,
-                timeout=10
+                timeout=5
             )
             if resp.status_code == 200:
                 return schemas.Response(success=True, message=f"API可访问 ({target_url})")
+            elif resp.status_code == 401:
+                return schemas.Response(success=False, message=f"API返回401未授权，需要配置Token，请在地址中添加Token，如 http://localhost:9321/your_token")
             else:
                 return schemas.Response(success=False, message=f"API返回异常 HTTP {resp.status_code}")
         except Exception as e:
