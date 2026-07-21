@@ -300,7 +300,7 @@
                           <v-btn :value="3" size="small">3层</v-btn>
                         </v-btn-toggle>
                         <div class="text-caption text-grey ml-3">
-                          <span v-if="editableConfig.multi_layer_count === 2">顶层25% / 中层75%</span>
+                          <span v-if="editableConfig.multi_layer_count === 2">顶层15% / 中层85%</span>
                           <span v-else>顶层20% / 中层60% / 底层20%</span>
                         </div>
                       </div>
@@ -505,14 +505,14 @@ const editableConfig = reactive({
   enable: false,
   width: 1920,
   height: 1080,
-  fontsize: 50,
-  alpha: 0.9,
-  duration: 15,
+  fontsize: 48,
+  alpha: 0.7,
+  duration: 14,
   path: '',
   useTmdbID: true,
   auto_scrape: true,
   enable_retry_task: true,
-  screen_area: 'full',
+  screen_area: 'quarter',
   enable_strm: true,
   danmu_api_url: 'http://localhost:9321',
   enable_multi_layer: false,

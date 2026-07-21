@@ -48,8 +48,8 @@ class DanmuTV(_PluginBase):
     _enabled = False
     _width = 1920
     _height = 1080
-    _fontsize = 50
-    _alpha = 0.9
+    _fontsize = 48
+    _alpha = 0.7
     _duration = 14
     _path = ''
     _max_threads = 2

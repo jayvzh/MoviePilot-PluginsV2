@@ -774,8 +774,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                                         layer_style = f'{styleid}Back'
                                         layer_fontsize = fontsize * 0.9
                                 else:
-                                    # 2层模式：顶层25% / 中层75%
-                                    if r < 0.25:
+                                    # 2层模式：顶层15% / 中层85%
+                                    if r < 0.15:
                                         layer = 'front'
                                         layer_num = 10
                                         duration_factor = 0.75 + random.random() * 0.15
