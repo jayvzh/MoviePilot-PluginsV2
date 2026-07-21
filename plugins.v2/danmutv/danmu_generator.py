@@ -553,44 +553,70 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         return None
 
     @staticmethod
-    def find_non_overlapping_track_v2(tracks: Dict[int, dict], current_time: float, text_width: float, 
-                                      screen_width: int, speed: float, max_tracks: int) -> Optional[int]:
+    def find_non_overlapping_track_v2(tracks: Dict[int, dict], current_time: float, text_width: float,
+                                      screen_width: int, speed: float, max_tracks: int,
+                                      buffer: float = 15.0) -> Optional[int]:
+        """统一的滚动弹幕轨道查找（间隙检测 + 追赶检测）。
+
+        tracks 每项: {'born': float, 'speed': float, 'width': float}
+        间隙只需 > buffer，因为新弹幕是逐渐从右往左进入的，不需要完整宽度的间隙。
+        """
         best_track = None
-        best_clearance = -1
-        required_clearance = text_width + 40
-        
+        best_clearance = -1.0
+
         for track in range(1, max_tracks + 1):
             if track not in tracks:
                 return track
-            
-            track_data = tracks[track]
-            prev_end_time = track_data['end_time']
-            prev_speed = track_data['speed']
-            
-            elapsed = current_time - prev_end_time
-            if elapsed >= 0:
+
+            rd = tracks[track]
+            prev_speed = rd['speed']
+            prev_width = rd['width']
+            elapsed = current_time - rd['born']
+
+            if elapsed < 0:
+                continue
+
+            # 上一条右边缘当前位置: 起点(screen_width) - 已移动距离 + 自身宽度
+            right_edge = screen_width - elapsed * prev_speed + prev_width
+
+            if right_edge < 0:
+                # 上一条已完全离开屏幕左侧，轨道空闲
                 return track
-            
-            remaining_time = -elapsed
-            remaining_width = remaining_time * prev_speed
-            clearance = screen_width - remaining_width
-            
-            if clearance > required_clearance and clearance > best_clearance:
+
+            # 当前间隙 = 屏幕右侧 - 上一条右边缘
+            clearance = screen_width - right_edge
+
+            if clearance <= buffer:
+                continue
+
+            # 追赶检测: 新弹幕更快时，确保到上一条退出前间隙不会耗尽
+            if speed > prev_speed:
+                remaining_time = (screen_width + prev_width) / prev_speed - elapsed
+                if remaining_time > 0:
+                    min_clearance = clearance - remaining_time * (speed - prev_speed)
+                    if min_clearance <= buffer:
+                        continue
+
+            if clearance > best_clearance:
                 best_clearance = clearance
                 best_track = track
-        
+
         return best_track
 
     @classmethod
-    def convert_comments_to_ass(cls, comments: List[Dict], output_file: str, width: int, 
+    def convert_comments_to_ass(cls, comments: List[Dict], output_file: str, width: int,
                               height: int, fontface: str, fontsize: float, alpha: float, duration: float, screen_area: str = 'full',
-                              enable_multi_layer: bool = False):
+                              enable_multi_layer: bool = False,
+                              random_top_bottom: bool = False, top_ratio: int = 0, bottom_ratio: int = 0):
         styleid = 'Danmu'
         
         # 根据屏幕区域计算有效高度和轨道数
         if screen_area == 'half':
             effective_height = height // 2  # 上半屏
             logger.info(f"使用半屏弹幕模式，有效高度: {effective_height}")
+        elif screen_area == 'third':
+            effective_height = height // 3  # 上1/3屏
+            logger.info(f"使用1/3屏弹幕模式，有效高度: {effective_height}")
         elif screen_area == 'quarter':
             effective_height = height // 4  # 上1/4屏
             logger.info(f"使用1/4屏弹幕模式，有效高度: {effective_height}")
@@ -604,6 +630,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         scrolling_tracks = {}
         top_tracks = {}
         bottom_tracks = {}
+        # 多层模式下，每层独立轨道字典和轨道数
+        if enable_multi_layer:
+            scrolling_tracks_front = {}
+            scrolling_tracks_mid = {}
+            scrolling_tracks_back = {}
+            max_tracks_front = int(effective_height) // int(fontsize * 1.2)
+            max_tracks_mid = max_tracks
+            max_tracks_back = int(effective_height) // int(fontsize * 0.9)
+            logger.info(f"多层弹幕轨道数 - 顶层:{max_tracks_front}, 中层:{max_tracks_mid}, 底层:{max_tracks_back}")
 
         logger.info(f"{output_file} - 共匹配到{len(comments)}条弹幕。")
 
@@ -640,6 +675,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     styles = ''
                     
                     if pos == 1:  # 滚动弹幕
+                        # 随机分配顶部/底部弹幕（从滚动弹幕中转换）
+                        if random_top_bottom and (top_ratio > 0 or bottom_ratio > 0):
+                            r_tb = random.random() * 100
+                            if top_ratio > 0 and r_tb < top_ratio:
+                                pos = 5  # 转为顶部弹幕
+                            elif bottom_ratio > 0 and r_tb < top_ratio + bottom_ratio:
+                                pos = 4  # 转为底部弹幕
+
+                    if pos == 1:  # 滚动弹幕
                         if enable_multi_layer:
                             r = random.random()
                             if r < 0.20:  # 顶层20%
@@ -667,40 +711,56 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             
                             text_width = len(text) * layer_fontsize * 0.6
                             velocity = (width + text_width) / layer_duration
+
+                            # 根据层选择独立轨道字典和轨道数
+                            if layer == 'front':
+                                layer_tracks = scrolling_tracks_front
+                                layer_max = max_tracks_front
+                            elif layer == 'mid':
+                                layer_tracks = scrolling_tracks_mid
+                                layer_max = max_tracks_mid
+                            else:
+                                layer_tracks = scrolling_tracks_back
+                                layer_max = max_tracks_back
+
+                            track_id = cls.find_non_overlapping_track_v2(
+                                layer_tracks, timeline, text_width, width, velocity, layer_max
+                            )
+                            if track_id is None:
+                                dropped_scroll += 1
+                                continue
+
+                            layer_tracks[track_id] = {
+                                'born': timeline,
+                                'speed': velocity,
+                                'width': text_width
+                            }
+
+                            initial_y = (track_id - 1) * layer_fontsize + 10
+                            styles = f'\\move({width}, {initial_y}, {-text_width}, {initial_y})'
                             
+                            f.write(f'Dialogue: {layer_num},{start_time},{end_time},{layer_style},,0,0,0,,{{\\c{color_hex}{styles}}}{text}\n')
+                        else:
+                            start_time = cls.convert_timestamp(timeline)
+                            end_time = cls.convert_timestamp(timeline + duration)
+
+                            text_width = len(text) * fontsize * 0.6
+                            velocity = (width + text_width) / duration
+
                             track_id = cls.find_non_overlapping_track_v2(
                                 scrolling_tracks, timeline, text_width, width, velocity, max_tracks
                             )
                             if track_id is None:
                                 dropped_scroll += 1
                                 continue
-                            
                             scrolling_tracks[track_id] = {
-                                'end_time': timeline + layer_duration,
-                                'speed': velocity
+                                'born': timeline,
+                                'speed': velocity,
+                                'width': text_width
                             }
-                            
-                            initial_y = (track_id - 1) * layer_fontsize + 10
-                            styles = f'\\move({width}, {initial_y}, {-len(text)*layer_fontsize}, {initial_y})'
-                            
-                            f.write(f'Dialogue: {layer_num},{start_time},{end_time},{layer_style},,0,0,0,,{{\\c{color_hex}{styles}}}{text}\n')
-                        else:
-                            start_time = cls.convert_timestamp(timeline)
-                            end_time = cls.convert_timestamp(timeline + duration)
-                            
-                            gap = 1
-                            text_width = len(text) * fontsize * 0.6
-                            velocity = (width + text_width) / duration
-                            leave_time = text_width / velocity + gap
-
-                            track_id = cls.find_non_overlapping_track(scrolling_tracks, timeline, max_tracks)
-                            if track_id is None:
-                                dropped_scroll += 1
-                                continue  # 全部轨道占用，跳过避免重叠
-                            scrolling_tracks[track_id] = timeline + leave_time
                             initial_y = (track_id - 1) * fontsize + 10
-                            styles = f'\\move({width}, {initial_y}, {-len(text)*fontsize}, {initial_y})'
-                            
+                            styles = f'\\move({width}, {initial_y}, {-text_width}, {initial_y})'
+
                             f.write(f'Dialogue: 0,{start_time},{end_time},{styleid},,0,0,0,,{{\\c{color_hex}{styles}}}{text}\n')
                     elif pos == 4:  # 底部弹幕
                         start_time = cls.convert_timestamp(timeline)
@@ -712,9 +772,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                             continue  # 全部轨道占用，跳过避免重叠
                         bottom_tracks[track_id] = timeline + duration
                         # 底部弹幕需要根据屏幕区域调整位置
-                        if screen_area == 'half':
-                            bottom_y = effective_height - 10 - (track_id - 1) * fontsize
-                        elif screen_area == 'quarter':
+                        if screen_area in ('half', 'third', 'quarter'):
                             bottom_y = effective_height - 10 - (track_id - 1) * fontsize
                         else:
                             bottom_y = height - 50 - (track_id - 1) * fontsize
@@ -1326,7 +1384,8 @@ def danmu_generator(file_path: str, width: int = 1920, height: int = 1080,
                    use_tmdb_id: bool = False, tmdb_id: Optional[int] = None,
                    episode: Optional[int] = None, cache_ttl: Optional[int] = None,
                    screen_area: str = 'full', manual_comment_id: Optional[str] = None,
-                   tmdb_id_type: int = 0, enable_multi_layer: bool = False) -> Optional[str]:
+                   tmdb_id_type: int = 0, enable_multi_layer: bool = False,
+                   random_top_bottom: bool = False, top_ratio: int = 0, bottom_ratio: int = 0) -> Optional[str]:
     try:
         comment_id = manual_comment_id or DanmuAPI.get_comment_id(
             file_path, use_tmdb_id, tmdb_id, episode, cache_ttl, tmdb_id_type
@@ -1361,7 +1420,10 @@ def danmu_generator(file_path: str, width: int = 1920, height: int = 1080,
             alpha=float(alpha), 
             duration=float(duration),
             screen_area=screen_area,
-            enable_multi_layer=enable_multi_layer
+            enable_multi_layer=enable_multi_layer,
+            random_top_bottom=random_top_bottom,
+            top_ratio=top_ratio,
+            bottom_ratio=bottom_ratio
         )
 
         # 处理字幕合并

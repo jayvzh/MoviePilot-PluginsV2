@@ -223,6 +223,7 @@
                     :items="[
                       { title: '全屏弹幕', value: 'full' },
                       { title: '半屏弹幕', value: 'half' },
+                      { title: '1/3屏弹幕', value: 'third' },
                       { title: '1/4屏弹幕', value: 'quarter' }
                     ]"
                     hint="选择弹幕显示的屏幕区域，超出区域的弹幕将被忽略"
@@ -285,6 +286,58 @@
                           hide-details
                           class="small-switch"
                         ></v-switch>
+                      </div>
+                    </div>
+                  </div>
+                </v-col>
+                <v-col cols="12" md="6">
+                  <div class="setting-item d-flex align-center py-2">
+                    <v-icon icon="mdi-format-vertical-align-top" size="small" :color="editableConfig.random_top_bottom ? 'primary' : 'grey'" class="mr-3"></v-icon>
+                    <div class="setting-content flex-grow-1">
+                      <div class="d-flex justify-space-between align-center">
+                        <div>
+                          <div class="text-subtitle-2">随机顶/底部弹幕</div>
+                          <div class="text-caption text-grey">从滚动弹幕中随机分配比例转为悬停弹幕（最大10%）</div>
+                        </div>
+                        <v-switch
+                          v-model="editableConfig.random_top_bottom"
+                          color="primary"
+                          inset
+                          :disabled="saving"
+                          density="compact"
+                          hide-details
+                          class="small-switch"
+                        ></v-switch>
+                      </div>
+                      <div v-if="editableConfig.random_top_bottom" class="d-flex align-center mt-2" style="gap: 12px;">
+                        <v-text-field
+                          v-model.number="editableConfig.top_ratio"
+                          label="顶部比例"
+                          type="number"
+                          density="compact"
+                          variant="outlined"
+                          hide-details
+                          :min="0"
+                          :max="10"
+                          :step="1"
+                          suffix="%"
+                          style="max-width: 130px;"
+                          :disabled="saving"
+                        ></v-text-field>
+                        <v-text-field
+                          v-model.number="editableConfig.bottom_ratio"
+                          label="底部比例"
+                          type="number"
+                          density="compact"
+                          variant="outlined"
+                          hide-details
+                          :min="0"
+                          :max="10"
+                          :step="1"
+                          suffix="%"
+                          style="max-width: 130px;"
+                          :disabled="saving"
+                        ></v-text-field>
                       </div>
                     </div>
                   </div>
@@ -383,7 +436,10 @@ const editableConfig = reactive({
   screen_area: 'full',
   enable_strm: true,
   danmu_api_url: 'http://localhost:9321',
-  enable_multi_layer: false
+  enable_multi_layer: false,
+  random_top_bottom: false,
+  top_ratio: 0,
+  bottom_ratio: 0
 });
 
 const getPluginId = () => {
@@ -421,7 +477,10 @@ async function loadInitialData() {
           screen_area: data.screen_area,
           enable_strm: data.enable_strm,
           danmu_api_url: data.danmu_api_url || 'http://localhost:9321',
-          enable_multi_layer: data.enable_multi_layer || false
+          enable_multi_layer: data.enable_multi_layer || false,
+          random_top_bottom: data.random_top_bottom || false,
+          top_ratio: data.top_ratio || 0,
+          bottom_ratio: data.bottom_ratio || 0
         });
       initialConfigLoaded.value = true;
       successMessage.value = '成功加载配置';
@@ -448,7 +507,10 @@ async function loadInitialData() {
         screen_area: props.initialConfig.screen_area,
         enable_strm: props.initialConfig.enable_strm,
         danmu_api_url: props.initialConfig.danmu_api_url || 'http://localhost:9321',
-        enable_multi_layer: props.initialConfig.enable_multi_layer || false
+        enable_multi_layer: props.initialConfig.enable_multi_layer || false,
+        random_top_bottom: props.initialConfig.random_top_bottom || false,
+        top_ratio: props.initialConfig.top_ratio || 0,
+        bottom_ratio: props.initialConfig.bottom_ratio || 0
       });
     }
     successMessage.value = null;
@@ -513,7 +575,10 @@ async function saveFullConfig() {
       screen_area: editableConfig.screen_area,
       enable_strm: editableConfig.enable_strm,
       danmu_api_url: editableConfig.danmu_api_url,
-      enable_multi_layer: editableConfig.enable_multi_layer
+      enable_multi_layer: editableConfig.enable_multi_layer,
+      random_top_bottom: editableConfig.random_top_bottom,
+      top_ratio: editableConfig.top_ratio,
+      bottom_ratio: editableConfig.bottom_ratio
     };
 
     // 发送保存请求
@@ -557,7 +622,10 @@ function resetConfigToFetched() {
         screen_area: serverFetchedConfig.screen_area,
         enable_strm: serverFetchedConfig.enable_strm,
         danmu_api_url: serverFetchedConfig.danmu_api_url || 'http://localhost:9321',
-        enable_multi_layer: serverFetchedConfig.enable_multi_layer || false
+        enable_multi_layer: serverFetchedConfig.enable_multi_layer || false,
+        random_top_bottom: serverFetchedConfig.random_top_bottom || false,
+        top_ratio: serverFetchedConfig.top_ratio || 0,
+        bottom_ratio: serverFetchedConfig.bottom_ratio || 0
       });
     error.value = null;
     successMessage.value = '配置已重置为上次加载的状态';
