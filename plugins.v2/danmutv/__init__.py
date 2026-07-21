@@ -1300,10 +1300,7 @@ class DanmuTV(_PluginBase):
             return schemas.Response(success=False, message=f"生成弹幕失败: {str(e)}")
 
     def check_api_status(self, api_url: Optional[str] = None) -> schemas.Response:
-        """
-        检测弹幕API后端连通性
-        """
-        target_url = (api_url or self._danmu_api_url or self._DEFAULT_DANMU_API_URL).rstrip('/')
+        target_url = (api_url or self._danmu_api_url or "http://localhost:9321").rstrip('/')
         try:
             resp = requests.get(
                 f"{target_url}/api/v2/search/anime",
@@ -1312,15 +1309,11 @@ class DanmuTV(_PluginBase):
                 timeout=5
             )
             if resp.status_code == 200:
-                return schemas.Response(success=True, message=f"API可访问 ({target_url})", data={"url": target_url})
+                return schemas.Response(success=True, message=f"API可访问 ({target_url})")
             else:
-                return schemas.Response(success=False, message=f"API返回异常 HTTP {resp.status_code}", data={"url": target_url})
-        except requests.exceptions.ConnectionError:
-            return schemas.Response(success=False, message=f"无法连接到API ({target_url})，请检查地址/网络/Docker IPv6", data={"url": target_url})
-        except requests.exceptions.Timeout:
-            return schemas.Response(success=False, message=f"连接API超时 ({target_url})", data={"url": target_url})
+                return schemas.Response(success=False, message=f"API返回异常 HTTP {resp.status_code}")
         except Exception as e:
-            return schemas.Response(success=False, message=f"API检测失败: {str(e)}", data={"url": target_url})
+            return schemas.Response(success=False, message=f"API检测失败: {str(e)}")
 
     def search_danmu(self, keyword: Optional[str] = None, type: Optional[str] = None) -> schemas.Response:
         """
@@ -1352,12 +1345,6 @@ class DanmuTV(_PluginBase):
                 return schemas.Response(success=False, message=message, data=data)
 
             return schemas.Response(success=True, data=data)
-        except requests.exceptions.ConnectionError:
-            logger.error(f"无法连接弹幕API: {generator.DanmuAPI.get_api_url()}")
-            return schemas.Response(success=False, message="无法连接弹幕API，请检查API地址或网络/Docker IPv6配置")
-        except requests.exceptions.Timeout:
-            logger.error("搜索弹幕资源超时")
-            return schemas.Response(success=False, message="连接弹幕API超时")
         except Exception as e:
             logger.error(f"搜索弹幕资源失败: {e}")
             return schemas.Response(success=False, message=f"搜索失败: {str(e)}")

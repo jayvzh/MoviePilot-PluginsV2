@@ -185,7 +185,7 @@
                       v-model="editableConfig.danmu_api_url"
                       label="弹幕API地址"
                       variant="outlined"
-                      hint="弹幕API后端地址，Docker环境请使用IPv4地址"
+                      hint="弹幕API后端地址"
                       persistent-hint
                       prepend-inner-icon="mdi-web"
                       :disabled="saving || testingApi"
@@ -385,8 +385,6 @@ const editableConfig = reactive({
   danmu_api_url: 'http://localhost:9321'
 });
 
-const DEFAULT_API_URL = 'http://localhost:9321';
-
 const getPluginId = () => {
   return "DanmuTV";
 };
@@ -422,7 +420,7 @@ async function loadInitialData() {
         enable_retry_task: data.enable_retry_task,
         screen_area: data.screen_area,
         enable_strm: data.enable_strm,
-        danmu_api_url: data.danmu_api_url || DEFAULT_API_URL
+        danmu_api_url: data.danmu_api_url || 'http://localhost:9321'
       });
       initialConfigLoaded.value = true;
       successMessage.value = '成功加载配置';
@@ -449,7 +447,7 @@ async function loadInitialData() {
         enable_retry_task: props.initialConfig.enable_retry_task,
         screen_area: props.initialConfig.screen_area,
         enable_strm: props.initialConfig.enable_strm,
-        danmu_api_url: props.initialConfig.danmu_api_url || DEFAULT_API_URL
+        danmu_api_url: props.initialConfig.danmu_api_url || 'http://localhost:9321'
       });
     }
     successMessage.value = null;

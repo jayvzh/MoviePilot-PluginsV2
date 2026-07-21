@@ -57,7 +57,7 @@ class DanmuAPI:
         "User-Agent": "Moviepilot/plugins 2.0.0"
     }
     MANUAL_MATCH_FILE = ".dandan.anime.json"
-    TIMEOUT = (5, 30)
+    TIMEOUT = (10, 60)
 
     _api_url = "http://localhost:9321"
 
