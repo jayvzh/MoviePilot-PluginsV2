@@ -606,6 +606,15 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         bottom_tracks = {}
 
         logger.info(f"{output_file} - 共匹配到{len(comments)}条弹幕。")
+
+        # 弹幕计数器
+        written_count = 0
+        dropped_format = 0
+        dropped_empty = 0
+        dropped_scroll = 0
+        dropped_bottom = 0
+        dropped_top = 0
+        dropped_error = 0
         
         with open(output_file, 'w', encoding='utf-8') as f:
             cls.write_ass_head(f, width, height, fontface, fontsize, alpha, styleid, multi_layer=enable_multi_layer)
@@ -614,7 +623,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 try:
                     p = comment.get('p', '').split(',')
                     if len(p) < 3:
-                        logger.warning(f"弹幕数据格式不正确: {comment}")
+                        dropped_format += 1
                         continue
                     
                     timeline = float(p[0])
@@ -624,6 +633,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     user = str(p[3])
                     
                     if not text:
+                        dropped_empty += 1
                         continue
                         
                     color_hex = f'&H{color & 0xFFFFFF:06X}'
@@ -662,6 +672,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                                 scrolling_tracks, timeline, text_width, width, velocity, max_tracks
                             )
                             if track_id is None:
+                                dropped_scroll += 1
                                 continue
                             
                             scrolling_tracks[track_id] = {
@@ -684,6 +695,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
                             track_id = cls.find_non_overlapping_track(scrolling_tracks, timeline, max_tracks)
                             if track_id is None:
+                                dropped_scroll += 1
                                 continue  # 全部轨道占用，跳过避免重叠
                             scrolling_tracks[track_id] = timeline + leave_time
                             initial_y = (track_id - 1) * fontsize + 10
@@ -696,6 +708,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         
                         track_id = cls.find_non_overlapping_track(bottom_tracks, timeline, max_tracks)
                         if track_id is None:
+                            dropped_bottom += 1
                             continue  # 全部轨道占用，跳过避免重叠
                         bottom_tracks[track_id] = timeline + duration
                         # 底部弹幕需要根据屏幕区域调整位置
@@ -714,6 +727,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         
                         track_id = cls.find_non_overlapping_track(top_tracks, timeline, max_tracks)
                         if track_id is None:
+                            dropped_top += 1
                             continue  # 全部轨道占用，跳过避免重叠
                         top_tracks[track_id] = timeline + duration
                         styles = f'\\an8\\pos({width/2}, {50 + (track_id - 1) * fontsize})'
@@ -725,10 +739,17 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         styles = f'\\move(0, 0, {width}, 0)'
                         
                         f.write(f'Dialogue: 0,{start_time},{end_time},{styleid},,0,0,0,,{{\\c{color_hex}{styles}}}{text}\n')
+
+                    written_count += 1
                 except Exception as e:
+                    dropped_error += 1
                     logger.error(f"处理弹幕数据失败: {e}, 弹幕数据: {comment}")
                     continue
             
+            total_dropped = dropped_format + dropped_empty + dropped_scroll + dropped_bottom + dropped_top + dropped_error
+            logger.info(f"弹幕统计 - 总数:{len(comments)}, 写入:{written_count}, 丢弃:{total_dropped} "
+                        f"(格式错误:{dropped_format}, 空文本:{dropped_empty}, 滚动满:{dropped_scroll}, "
+                        f"底部满:{dropped_bottom}, 顶部满:{dropped_top}, 异常:{dropped_error})")
             logger.info('弹幕生成成功 - ' + output_file)
 
 class SubtitleProcessor:
