@@ -11,7 +11,8 @@
 - 更新前端配置页面添加多层弹幕开关控件
 
 ### Fixed
-- 无
+- 修复缺少 `import random` 导致多层弹幕处理全部失败的错误
+- 修复 `_save_config` 方法中残留 `onlyFromBili` 属性引用导致保存配置失败
 
 ### Removed
 - 无
