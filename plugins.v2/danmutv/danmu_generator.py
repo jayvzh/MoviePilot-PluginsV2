@@ -1595,7 +1595,7 @@ def danmu_generator(file_path: str, width: int = 1920, height: int = 1080,
             if StrmProcessor.is_strm_file(file_path):
                 logger.info(f'.strm文件未找到外部字幕，仅生成弹幕文件 - {file_path}')
             else:
-                logger.error(f'未找到原生字幕，跳过合并 - {file_path}')
+                logger.info(f'未找到原生字幕，跳过合并 - {file_path}')
 
         return output_file
 

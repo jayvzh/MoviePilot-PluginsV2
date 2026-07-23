@@ -28,7 +28,7 @@ class DanmuTV(_PluginBase):
     # 插件描述
     plugin_desc = "使用弹幕API后端生成影视弹幕字幕文件，支持电视剧、电影、动漫等多种媒体类型。"
     # 插件图标
-    plugin_icon = "danmu.png"
+    plugin_icon = "https://raw.githubusercontent.com/jayvzh/MoviePilot-PluginsV2/main/icons/danmu.png"
     # 主题色
     plugin_color = "#3B5E8E"
     # 插件版本
@@ -662,6 +662,8 @@ class DanmuTV(_PluginBase):
                 "width_scale": self._width_scale,
                 "retry_tasks": json.dumps(retry_tasks_for_save)
             })
+            
+            self.init_plugin(self.get_config())
             
             return schemas.Response(success=True, message="配置已保存")
         except Exception as e:
