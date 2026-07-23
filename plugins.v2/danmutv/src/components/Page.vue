@@ -92,6 +92,19 @@
             ></v-text-field>
             <v-btn
               v-if="currentPath && directoryContent && directoryContent.type === 'directory'"
+              color="warning"
+              size="small"
+              variant="tonal"
+              class="ml-2"
+              prepend-icon="mdi-trash-can"
+              :loading="batchStarting"
+              :disabled="scrapingStatus.running"
+              @click="cleanCurrentDirectorySubtitles"
+            >
+              清理字幕
+            </v-btn>
+            <v-btn
+              v-if="currentPath && directoryContent && directoryContent.type === 'directory'"
               color="primary"
               size="small"
               variant="tonal"
@@ -788,6 +801,37 @@ async function scrapeDirectory(path) {
 
 function scrapeCurrentDirectory() {
   scrapeDirectory(currentPath.value);
+}
+
+async function cleanCurrentDirectorySubtitles() {
+  if (!currentPath.value) return;
+  
+  if (!confirm(`确定要清理当前目录 "${currentPath.value}" 下的所有弹幕和合并字幕文件吗？此操作不可恢复。`)) {
+    return;
+  }
+  
+  batchStarting.value = true;
+  error.value = null;
+  successMessage.value = null;
+  
+  try {
+    const res = await props.api.get('plugin/DanmuTV/clean_subtitles', {
+      params: { directory_path: currentPath.value }
+    });
+    
+    if (res && res.success) {
+      successMessage.value = `成功清理 ${res.data?.deleted?.length || 0} 个字幕文件`;
+      // 刷新目录内容，更新弹幕状态
+      await navigateToPath(currentPath.value);
+    } else {
+      error.value = res?.message || '清理字幕失败';
+    }
+  } catch (err) {
+    console.error('清理字幕失败:', err);
+    error.value = '清理字幕失败，请检查网络或API';
+  } finally {
+    batchStarting.value = false;
+  }
 }
 
 function startStatusPolling() {

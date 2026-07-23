@@ -32,7 +32,7 @@ class DanmuTV(_PluginBase):
     # 主题色
     plugin_color = "#3B5E8E"
     # 插件版本
-    plugin_version = "1.4"
+    plugin_version = "1.5"
     # 插件作者
     plugin_author = "jayvzh"
     # 作者主页
@@ -524,6 +524,14 @@ class DanmuTV(_PluginBase):
             "description": "移除指定的重试任务，需要file_path参数"
         },
         {
+            "path": "/clean_subtitles",
+            "endpoint": self.clean_subtitles,
+            "methods": ["GET"],
+            "auth": "bear",
+            "summary": "清理字幕文件",
+            "description": "清理指定文件或目录下的弹幕和合并字幕文件，支持file_path和directory_path参数"
+        },
+        {
             "path": "/search_danmu",
             "endpoint": self.search_danmu,
             "methods": ["GET"],
@@ -738,6 +746,23 @@ class DanmuTV(_PluginBase):
                 logger.warning(f"单文件手动匹配生成弹幕ID失败: {manual_file_match}")
 
         try:
+            ass_file = f"{os.path.splitext(file_path)[0]}.danmu.chs.ass"
+            # 检查本地是否已有弹幕文件，有则跳过API请求，直接复用
+            if os.path.exists(ass_file):
+                danmu_count = self._count_danmu_lines_cached(ass_file)
+                if danmu_count >= self._min_danmu_count:
+                    logger.info(f"本地已有弹幕文件，跳过API请求: {ass_file} ({danmu_count}条)")
+                    # 直接进行字幕合并（如果有原字幕的话）
+                    sub2 = generator.SubtitleProcessor.find_subtitle_file(file_path)
+                    if not sub2 and generator.SubtitleProcessor.can_extract_subtitles(file_path):
+                        generator.SubtitleProcessor.try_extract_sub(file_path)
+                        sub2 = generator.SubtitleProcessor.find_subtitle_file(file_path)
+                    if sub2:
+                        generator.SubtitleProcessor.combine_sub_ass(ass_file, sub2, file_path)
+                    return ass_file
+                else:
+                    logger.info(f"本地弹幕文件数量不足，重新获取: {ass_file} ({danmu_count}条 < {self._min_danmu_count})")
+            
             result = generator.danmu_generator(
                 file_path,
                 self._width,
@@ -1676,6 +1701,55 @@ class DanmuTV(_PluginBase):
             return schemas.Response(
                 success=False,
                 message=f"未找到重试任务: {file_path}"
+            )
+
+    def clean_subtitles(self, file_path: str = None, directory_path: str = None) -> schemas.Response:
+        """
+        清理字幕文件
+        :param file_path: 单个媒体文件路径（清理该文件相关的弹幕和合并字幕）
+        :param directory_path: 目录路径（清理该目录下所有弹幕和合并字幕）
+        :return: 清理结果
+        """
+        deleted_files = []
+        
+        if file_path:
+            # 清理单个文件的弹幕和合并字幕
+            base_name = os.path.splitext(file_path)[0]
+            # 弹幕文件
+            danmu_file = f"{base_name}.danmu.chs.ass"
+            if os.path.exists(danmu_file):
+                os.remove(danmu_file)
+                deleted_files.append(os.path.basename(danmu_file))
+            # 合并字幕文件
+            with_danmu_file = f"{base_name}.chs.withDanmu.ass"
+            if os.path.exists(with_danmu_file):
+                os.remove(with_danmu_file)
+                deleted_files.append(os.path.basename(with_danmu_file))
+        elif directory_path:
+            # 清理目录下所有弹幕和合并字幕文件
+            try:
+                for root, _, files in os.walk(directory_path):
+                    for file in files:
+                        if file.endswith('.danmu.chs.ass') or '.withDanmu.ass' in file:
+                            full_path = os.path.join(root, file)
+                            os.remove(full_path)
+                            deleted_files.append(os.path.relpath(full_path, directory_path))
+            except Exception as e:
+                return schemas.Response(success=False, message=f"清理目录失败: {str(e)}")
+        else:
+            return schemas.Response(success=False, message="请提供file_path或directory_path参数")
+        
+        if deleted_files:
+            logger.info(f"已清理字幕文件: {deleted_files}")
+            return schemas.Response(
+                success=True,
+                message=f"成功清理 {len(deleted_files)} 个字幕文件",
+                data={"deleted": deleted_files}
+            )
+        else:
+            return schemas.Response(
+                success=True,
+                message="没有可清理的字幕文件"
             )
 
     def auto_process_retry_tasks(self):

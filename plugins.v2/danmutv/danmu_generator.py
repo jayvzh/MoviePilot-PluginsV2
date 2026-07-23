@@ -979,8 +979,10 @@ class SubtitleProcessor:
                     continue
                     
                 output_file = f"{base_name}.{language}.ass"
+                # 已有本地提取的字幕文件，跳过重新提取
                 if os.path.exists(output_file):
-                    os.remove(output_file)
+                    logger.info(f"已有本地字幕文件，跳过提取: {output_file}")
+                    break
                     
                 if cls.extract_subtitles(file_path, output_file, stream_index):
                     logger.info(f'成功提取内嵌字幕 - {output_file}')
@@ -1272,51 +1274,67 @@ class SubtitleProcessor:
                         f"ratio={ratio_x:.4f}x{ratio_y:.4f}"
                     )
 
-                # Extract the danmu style line and dialogue events
-                danmu_style_match = re.search(r'^Style:.*$', sub1_content, re.MULTILINE)
-                if not danmu_style_match:
+                # Extract the danmu style lines and dialogue events
+                danmu_style_lines = re.findall(r'^Style:.*$', sub1_content, re.MULTILINE)
+                if not danmu_style_lines:
                     logger.error(f"弹幕文件中未找到样式行: {sub1}")
                     return False
-                danmu_style_line = danmu_style_match.group()
+                logger.info(f"弹幕文件中找到 {len(danmu_style_lines)} 条样式")
                 danmu_event_lines = [
                     line for line in sub1_content.splitlines()
                     if line.startswith('Dialogue:')
                 ]
 
                 if need_scale:
-                    # Danmu style: Fontsize (idx 2) and Outline (idx 16) follow Y axis
-                    fields = danmu_style_line.split(',')
-                    if len(fields) >= 17:
-                        fields[2] = f'{max(float(fields[2]) * ratio_y, 1):.0f}'
-                        fields[16] = f'{max(float(fields[16]) * ratio_y, 0.5):.2f}'
-                        danmu_style_line = ','.join(fields)
+                    # Scale each danmu style: Fontsize (idx 2) and Outline (idx 16) follow Y axis
+                    scaled_styles = []
+                    for style_line in danmu_style_lines:
+                        fields = style_line.split(',')
+                        if len(fields) >= 17:
+                            fields[2] = f'{max(float(fields[2]) * ratio_y, 1):.0f}'
+                            fields[16] = f'{max(float(fields[16]) * ratio_y, 0.5):.2f}'
+                            scaled_styles.append(','.join(fields))
+                        else:
+                            scaled_styles.append(style_line)
+                    danmu_style_lines = scaled_styles
                     danmu_event_lines = SubtitleProcessor._scale_ass_events(
                         '\n'.join(danmu_event_lines), ratio_x, ratio_y
                     ).splitlines()
 
-                # Rename the danmu style if it collides with an original style name
-                danmu_style_name = danmu_style_line.split(':', 1)[1].split(',')[0].strip()
+                # Rename danmu styles if they collide with original style names
                 sub2_style_names = {
                     line.split(':', 1)[1].split(',')[0].strip()
                     for line in re.findall(r'^Style:.*$', sub2_content, re.MULTILINE)
                 }
-                if danmu_style_name in sub2_style_names:
-                    new_name = danmu_style_name
-                    while new_name in sub2_style_names:
-                        new_name += '_MP'
-                    fields = danmu_style_line.split(',')
+                renamed_styles = []
+                style_rename_map = {}
+                for style_line in danmu_style_lines:
+                    style_name = style_line.split(':', 1)[1].split(',')[0].strip()
+                    new_name = style_name
+                    if new_name in sub2_style_names:
+                        while new_name in sub2_style_names or new_name in style_rename_map:
+                            new_name += '_MP'
+                        style_rename_map[style_name] = new_name
+                        logger.info(f"弹幕样式名与原字幕冲突，重命名: {style_name} -> {new_name}")
+                    else:
+                        style_rename_map[style_name] = new_name
+                    fields = style_line.split(',')
                     fields[0] = f'Style: {new_name}'
-                    danmu_style_line = ','.join(fields)
-                    renamed = []
-                    for line in danmu_event_lines:
-                        parts = line.split(',', 9)
-                        if len(parts) >= 10:
-                            parts[3] = new_name
-                            renamed.append(','.join(parts))
-                        else:
-                            renamed.append(line)
-                    danmu_event_lines = renamed
-                    logger.info(f"弹幕样式名与原字幕冲突，重命名为: {new_name}")
+                    renamed_styles.append(','.join(fields))
+                danmu_style_lines = renamed_styles
+                
+                # Update dialogue events to use renamed styles
+                renamed_events = []
+                for line in danmu_event_lines:
+                    parts = line.split(',', 9)
+                    if len(parts) >= 10:
+                        old_style = parts[3]
+                        if old_style in style_rename_map:
+                            parts[3] = style_rename_map[old_style]
+                        renamed_events.append(','.join(parts))
+                    else:
+                        renamed_events.append(line)
+                danmu_event_lines = renamed_events
 
                 # Locate the original subtitle's sections to find insertion
                 # points and collect per-style alignment for the blur filter
@@ -1401,7 +1419,7 @@ class SubtitleProcessor:
                     else:
                         output_lines.append(raw)
                     if i == styles_format_idx:
-                        output_lines.append(danmu_style_line)
+                        output_lines.extend(danmu_style_lines)
                         style_inserted = True
                     if i == events_format_idx and events_insertable:
                         output_lines.extend(danmu_event_lines)
@@ -1416,8 +1434,7 @@ class SubtitleProcessor:
                         'OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, '
                         'ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, '
                         'Alignment, MarginL, MarginR, MarginV, Encoding',
-                        danmu_style_line
-                    ]
+                    ] + danmu_style_lines
                 if not events_inserted:
                     output_lines += [
                         '', '[Events]',
