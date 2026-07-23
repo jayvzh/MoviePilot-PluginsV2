@@ -32,7 +32,3 @@
 
 - [HankunYu](https://github.com/HankunYu/MoviePilot-Plugins) - 原弹幕刮削插件作者
 - [danmu-api](https://github.com/huangxd-/danmu_api) - 弹幕数据服务后端
-
-### License
-
-[MIT](LICENSE)
