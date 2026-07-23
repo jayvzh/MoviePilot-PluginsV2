@@ -354,11 +354,21 @@ class DanmuTV(_PluginBase):
                 parsed_tasks = {}
                 for file_path, task_info in loaded_tasks.items():
                     try:
+                        retry_count = task_info.get("retry_count", 1)
+                        last_attempt = datetime.fromisoformat(task_info.get("last_attempt", datetime.now().isoformat()))
+                        
+                        if "next_retry_time" in task_info:
+                            next_retry_time = datetime.fromisoformat(task_info["next_retry_time"])
+                        else:
+                            next_retry_time = self._calculate_next_retry_time(retry_count, task_info.get("error_type", "unknown"))
+                        
                         parsed_tasks[file_path] = {
-                            "retry_count": task_info.get("retry_count", 1),
-                            "last_attempt": datetime.fromisoformat(task_info.get("last_attempt", datetime.now().isoformat())),
+                            "retry_count": retry_count,
+                            "last_attempt": last_attempt,
                             "file_path": task_info.get("file_path", file_path),
-                            "last_danmu_count": task_info.get("last_danmu_count", 0)
+                            "last_danmu_count": task_info.get("last_danmu_count", 0),
+                            "error_type": task_info.get("error_type", "unknown"),
+                            "next_retry_time": next_retry_time
                         }
                     except (ValueError, TypeError) as e:
                         logger.warning(f"跳过无效的重试任务 {file_path}: {e}")
@@ -396,8 +406,8 @@ class DanmuTV(_PluginBase):
                 "trigger": "cron",
                 "func": self.auto_process_retry_tasks,
                 "kwargs": {
-                    "minute": 0,
-                    "hour": "*/3",  # 每3小时执行一次
+                    "minute": "*/5",  # 每5分钟执行一次
+                    "hour": "*",
                     "day": "*",
                     "month": "*",
                     "day_of_week": "*"
@@ -792,6 +802,15 @@ class DanmuTV(_PluginBase):
             ass_file = f"{os.path.splitext(file_path)[0]}.danmu.chs.ass"
             danmu_count = 0
             
+            error_type = "unknown"
+            if isinstance(result, str) and result.startswith('error:'):
+                parts = result.split(':', 2)
+                if len(parts) >= 2:
+                    error_type = parts[1]
+                logger.warning(result)
+                self._add_to_retry_if_needed(file_path, 0, error_type)
+                return result[7:] if error_type == "rate_limit" else result
+            
             # 如果返回字符串且包含弹幕数量为0，说明是失败原因
             if isinstance(result, str) and result.startswith('弹幕数量为0'):
                 logger.info(result)
@@ -827,41 +846,63 @@ class DanmuTV(_PluginBase):
             self._add_to_retry_if_needed(file_path, 0)
             return f"生成弹幕失败: {str(e)}"
 
-    def _add_to_retry_if_needed(self, file_path: str, danmu_count: int):
+    def _add_to_retry_if_needed(self, file_path: str, danmu_count: int, error_type: str = "unknown"):
         """
         根据弹幕数量判断是否需要添加到重试任务
         :param file_path: 文件路径
         :param danmu_count: 弹幕数量
+        :param error_type: 错误类型 (rate_limit/network/unknown)
         """
         if not self._enable_retry_task:
             return
 
         with self._retry_lock:
-            # 检查文件是否已在重试列表中
+            now = datetime.now()
             if file_path in self._retry_tasks:
-                # 更新重试次数和最后尝试时间
                 self._retry_tasks[file_path]["retry_count"] += 1
-                self._retry_tasks[file_path]["last_attempt"] = datetime.now()
+                self._retry_tasks[file_path]["last_attempt"] = now
+                self._retry_tasks[file_path]["error_type"] = error_type
 
-                # 检查是否达到最大重试次数
                 if self._retry_tasks[file_path]["retry_count"] >= self._max_retry_times:
                     logger.warning(f"文件 {file_path} 达到最大重试次数 ({self._max_retry_times})，从重试列表中移除")
                     del self._retry_tasks[file_path]
                 else:
-                    logger.info(f"更新重试任务: {file_path}，重试次数: {self._retry_tasks[file_path]['retry_count']}")
+                    retry_count = self._retry_tasks[file_path]["retry_count"]
+                    next_time = self._calculate_next_retry_time(retry_count, error_type)
+                    self._retry_tasks[file_path]["next_retry_time"] = next_time
+                    logger.info(f"更新重试任务: {file_path}，重试次数: {retry_count}，下次重试: {next_time.strftime('%Y-%m-%d %H:%M:%S')}")
             else:
-                # 添加新的重试任务
                 if danmu_count < self._min_danmu_count:
+                    next_time = self._calculate_next_retry_time(1, error_type)
                     self._retry_tasks[file_path] = {
                         "retry_count": 1,
-                        "last_attempt": datetime.now(),
+                        "last_attempt": now,
                         "file_path": file_path,
-                        "last_danmu_count": danmu_count
+                        "last_danmu_count": danmu_count,
+                        "error_type": error_type,
+                        "next_retry_time": next_time
                     }
-                    logger.info(f"添加新的重试任务: {file_path}，当前弹幕数量: {danmu_count}")
+                    logger.info(f"添加新的重试任务: {file_path}，当前弹幕数量: {danmu_count}，下次重试: {next_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
-        # 保存重试任务到配置
         self._save_retry_tasks()
+
+    def _calculate_next_retry_time(self, retry_count: int, error_type: str = "unknown") -> datetime:
+        """
+        计算下次重试时间（指数退避）
+        :param retry_count: 当前重试次数
+        :param error_type: 错误类型
+        :return: 下次重试时间
+        """
+        base_intervals = [5, 30, 60, 120, 240, 480]
+        if retry_count <= len(base_intervals):
+            base_minutes = base_intervals[retry_count - 1]
+        else:
+            base_minutes = 480
+
+        if error_type == "rate_limit":
+            base_minutes = max(base_minutes, 30)
+
+        return datetime.now() + timedelta(minutes=base_minutes)
 
     def _save_retry_tasks(self):
         """
@@ -879,7 +920,9 @@ class DanmuTV(_PluginBase):
                         "retry_count": task_info["retry_count"],
                         "last_attempt": task_info["last_attempt"].isoformat(),
                         "file_path": task_info["file_path"],
-                        "last_danmu_count": task_info.get("last_danmu_count", 0)
+                        "last_danmu_count": task_info.get("last_danmu_count", 0),
+                        "error_type": task_info.get("error_type", "unknown"),
+                        "next_retry_time": task_info.get("next_retry_time", datetime.now()).isoformat()
                     }
 
             # 获取当前配置
@@ -1566,7 +1609,9 @@ class DanmuTV(_PluginBase):
                     "retry_count": task_info["retry_count"],
                     "last_attempt": task_info["last_attempt"].strftime("%Y-%m-%d %H:%M:%S"),
                     "file_path": task_info["file_path"],
-                    "last_danmu_count": task_info.get("last_danmu_count", 0)
+                    "last_danmu_count": task_info.get("last_danmu_count", 0),
+                    "error_type": task_info.get("error_type", "unknown"),
+                    "next_retry_time": task_info.get("next_retry_time", datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
                 }
         
         return schemas.Response(
@@ -1613,6 +1658,11 @@ class DanmuTV(_PluginBase):
                 with self._retry_lock:
                     self._retry_tasks.pop(file_path, None)
                 removed_count += 1
+                continue
+
+            # 检查下次重试时间是否到达
+            next_retry_time = task_info.get("next_retry_time")
+            if next_retry_time and datetime.now() < next_retry_time:
                 continue
             
             logger.info(f"处理重试任务: {file_path} (第 {task_info['retry_count'] + 1} 次尝试)")
