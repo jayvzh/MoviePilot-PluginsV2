@@ -1243,14 +1243,7 @@ class SubtitleProcessor:
                 sub2_content = f.read()
                 
             if os.path.splitext(sub2)[1].lower() in ['.ass', '.ssa']:
-                # Reverse-merge: the original subtitle is the base and is kept
-                # byte-identical (header, styles, events untouched except the
-                # optional blur tag on plain bottom dialogue). The danmu events
-                # are rescaled INTO the original subtitle's coordinate space —
-                # danmu is machine-generated (one style + \move/\pos only), so
-                # scaling it is fully reliable, unlike scaling hand-authored
-                # effect subtitles.
-
+                # Merge: use danmu's resolution as base, scale original subtitle UP to match
                 # Danmu resolution: we always write PlayRes into the danmu header
                 d_x, d_y = SubtitleProcessor._resolve_playres(sub1_content)
                 d_x, d_y = d_x or 1920, d_y or 1080
@@ -1265,12 +1258,14 @@ class SubtitleProcessor:
                 elif s_y is None:
                     s_y = round(s_x * 3 / 4)
 
-                ratio_x = s_x / d_x
-                ratio_y = s_y / d_y
+                # Use danmu's resolution as base for merged file
+                # Scale original subtitle UP to danmu resolution if needed
+                ratio_x = d_x / s_x
+                ratio_y = d_y / s_y
                 need_scale = not (ratio_x == 1.0 and ratio_y == 1.0)
                 if need_scale:
                     logger.info(
-                        f"弹幕坐标缩放: danmu {d_x}x{d_y} -> 原字幕 {s_x}x{s_y}, "
+                        f"字幕坐标缩放: 原字幕 {s_x}x{s_y} -> 弹幕分辨率 {d_x}x{d_y}, "
                         f"ratio={ratio_x:.4f}x{ratio_y:.4f}"
                     )
 
@@ -1284,22 +1279,6 @@ class SubtitleProcessor:
                     line for line in sub1_content.splitlines()
                     if line.startswith('Dialogue:')
                 ]
-
-                if need_scale:
-                    # Scale each danmu style: Fontsize (idx 2) and Outline (idx 16) follow Y axis
-                    scaled_styles = []
-                    for style_line in danmu_style_lines:
-                        fields = style_line.split(',')
-                        if len(fields) >= 17:
-                            fields[2] = f'{max(float(fields[2]) * ratio_y, 1):.0f}'
-                            fields[16] = f'{max(float(fields[16]) * ratio_y, 0.5):.2f}'
-                            scaled_styles.append(','.join(fields))
-                        else:
-                            scaled_styles.append(style_line)
-                    danmu_style_lines = scaled_styles
-                    danmu_event_lines = SubtitleProcessor._scale_ass_events(
-                        '\n'.join(danmu_event_lines), ratio_x, ratio_y
-                    ).splitlines()
 
                 # Rename danmu styles if they collide with original style names
                 sub2_style_names = {
@@ -1336,9 +1315,51 @@ class SubtitleProcessor:
                         renamed_events.append(line)
                 danmu_event_lines = renamed_events
 
+                # Scale original subtitle styles and events to danmu resolution if needed
+                scaled_sub2_content = sub2_content
+                if need_scale:
+                    # Scale original subtitle styles
+                    sub2_style_lines = re.findall(r'^Style:.*$', sub2_content, re.MULTILINE)
+                    scaled_sub2_styles = []
+                    for style_line in sub2_style_lines:
+                        fields = style_line.split(',')
+                        if len(fields) >= 17:
+                            fields[2] = f'{max(float(fields[2]) * ratio_y, 1):.0f}'
+                            fields[16] = f'{max(float(fields[16]) * ratio_y, 0.5):.2f}'
+                            scaled_sub2_styles.append(','.join(fields))
+                        else:
+                            scaled_sub2_styles.append(style_line)
+                    
+                    # Scale original subtitle events
+                    sub2_event_lines = [
+                        line for line in sub2_content.splitlines()
+                        if line.startswith('Dialogue:')
+                    ]
+                    scaled_sub2_events = SubtitleProcessor._scale_ass_events(
+                        '\n'.join(sub2_event_lines), ratio_x, ratio_y
+                    ).splitlines()
+                    
+                    # Reconstruct scaled sub2 content
+                    scaled_sub2_lines = []
+                    for line in sub2_content.splitlines():
+                        if line.startswith('Style:'):
+                            if scaled_sub2_styles:
+                                scaled_sub2_lines.append(scaled_sub2_styles.pop(0))
+                            else:
+                                scaled_sub2_lines.append(line)
+                        elif line.startswith('Dialogue:'):
+                            if scaled_sub2_events:
+                                scaled_sub2_lines.append(scaled_sub2_events.pop(0))
+                            else:
+                                scaled_sub2_lines.append(line)
+                        else:
+                            scaled_sub2_lines.append(line)
+                    scaled_sub2_content = '\n'.join(scaled_sub2_lines)
+                    logger.info(f"已将原字幕缩放到弹幕分辨率")
+
                 # Locate the original subtitle's sections to find insertion
                 # points and collect per-style alignment for the blur filter
-                sub2_lines = sub2_content.splitlines()
+                sub2_lines = scaled_sub2_content.splitlines()
                 section = None
                 styles_format_idx = None    # v4+ styles Format line (danmu style goes after it)
                 events_format_idx = None    # events Format line (danmu events go after it)
@@ -1442,9 +1463,19 @@ class SubtitleProcessor:
                     ]
                     output_lines += danmu_event_lines
 
+                # Update PlayResX/Y in output to match danmu resolution
+                final_lines = []
+                for line in output_lines:
+                    if line.startswith('PlayResX:'):
+                        final_lines.append(f'PlayResX: {d_x}')
+                    elif line.startswith('PlayResY:'):
+                        final_lines.append(f'PlayResY: {d_y}')
+                    else:
+                        final_lines.append(line)
+
                 output = os.path.splitext(sub2)[0] + ".withDanmu.ass"
                 with open(output, 'w', encoding='utf-8-sig') as f:
-                    f.write('\n'.join(output_lines))
+                    f.write('\n'.join(final_lines))
                     f.write('\n')
 
                 logger.info(f"字幕合并完成（原字幕保持原样）: {output}")

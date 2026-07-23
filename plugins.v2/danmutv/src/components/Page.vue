@@ -445,10 +445,11 @@
             此操作不可恢复，清理后需重新刮削获取弹幕。
           </v-alert>
         </v-card-text>
-        <v-card-actions class="px-2 py-1">
+        <v-card-actions class="px-6 py-3">
           <v-spacer></v-spacer>
-          <v-btn color="grey" variant="text" @click="cleanConfirmDialog = false">取消</v-btn>
-          <v-btn color="warning" @click="confirmCleanSubtitles">确认清理</v-btn>
+          <v-btn color="grey" variant="outlined" size="small" class="mr-3" @click="cleanConfirmDialog = false">取消</v-btn>
+          <v-btn color="warning" variant="tonal" size="small" @click="confirmCleanSubtitles">确认清理</v-btn>
+          <v-spacer></v-spacer>
         </v-card-actions>
       </v-card>
     </v-dialog>
