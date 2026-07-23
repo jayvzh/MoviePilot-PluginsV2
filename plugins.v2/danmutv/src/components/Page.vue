@@ -422,6 +422,36 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <v-dialog v-model="cleanConfirmDialog" max-width="500">
+      <v-card>
+        <v-card-title class="text-subtitle-1">
+          <v-icon icon="mdi-alert-circle" color="warning" class="mr-2"></v-icon>
+          确认清理字幕
+        </v-card-title>
+        <v-card-text>
+          <div class="text-body-1">
+            确定要清理当前目录下的所有弹幕和合并字幕文件吗？
+          </div>
+          <div class="text-caption text-grey mt-2">
+            目录：{{ currentPath }}
+          </div>
+          <v-alert
+            type="warning"
+            density="compact"
+            variant="tonal"
+            class="mt-3 text-caption"
+          >
+            此操作不可恢复，清理后需重新刮削获取弹幕。
+          </v-alert>
+        </v-card-text>
+        <v-card-actions class="px-2 py-1">
+          <v-spacer></v-spacer>
+          <v-btn color="grey" variant="text" @click="cleanConfirmDialog = false">取消</v-btn>
+          <v-btn color="warning" @click="confirmCleanSubtitles">确认清理</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -472,6 +502,7 @@ const searchKeyword = ref('');
 
 // 手动匹配相关状态
 const manualDialog = ref(false);
+const cleanConfirmDialog = ref(false);
 const manualContext = ref(null);
 const manualSearchKeyword = ref('');
 const manualSearchType = ref('tvseries');
@@ -806,9 +837,11 @@ function scrapeCurrentDirectory() {
 async function cleanCurrentDirectorySubtitles() {
   if (!currentPath.value) return;
   
-  if (!confirm(`确定要清理当前目录 "${currentPath.value}" 下的所有弹幕和合并字幕文件吗？此操作不可恢复。`)) {
-    return;
-  }
+  cleanConfirmDialog.value = true;
+}
+
+async function confirmCleanSubtitles() {
+  cleanConfirmDialog.value = false;
   
   batchStarting.value = true;
   error.value = null;
@@ -821,7 +854,6 @@ async function cleanCurrentDirectorySubtitles() {
     
     if (res && res.success) {
       successMessage.value = `成功清理 ${res.data?.deleted?.length || 0} 个字幕文件`;
-      // 刷新目录内容，更新弹幕状态
       await navigateToPath(currentPath.value);
     } else {
       error.value = res?.message || '清理字幕失败';
