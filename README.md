@@ -1,6 +1,6 @@
 # MoviePilot-PluginsV2
 
-MoviePilot三方插件市场：<https://github.com/thsrite/MoviePilot-Plugins/>
+MoviePilot三方插件市场：<https://github.com/jxxghp/MoviePilot-Plugins>
 
 ### 使用
 
