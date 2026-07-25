@@ -3,28 +3,57 @@
     <v-card flat class="rounded border status-card">
       <v-card-title class="text-caption d-flex align-center px-3 py-2 bg-primary-lighten-5">
         <v-icon icon="mdi-delete-sweep" color="error" size="small" class="mr-2"></v-icon>
-        孤儿字幕清理
+        残留弹幕字幕清理
       </v-card-title>
       <v-card-text class="px-3 py-2">
-        <v-row class="mb-3">
+        <v-row class="mb-2">
           <v-col cols="12">
-            <v-chip label="扫描路径:" size="small" class="mr-2"></v-chip>
-            <span class="text-caption text-grey">{{ scanPath || '未配置' }}</span>
+            <v-alert type="info" density="compact" class="text-caption" variant="tonal">
+              <v-icon icon="mdi-information" size="small" class="mr-1"></v-icon>
+              扫描并清理原视频已删除的残留弹幕字幕文件（.danmu.ass）
+            </v-alert>
           </v-col>
         </v-row>
+        
+        <v-row class="mb-3">
+          <v-col cols="12" sm="6">
+            <v-chip label="扫描路径:" size="small" class="mr-2"></v-chip>
+            <v-select
+              v-model="selectedPathsList"
+              :items="pathOptions"
+              item-title="label"
+              item-value="value"
+              label="选择扫描路径"
+              density="compact"
+              variant="outlined"
+              hide-details
+              multiple
+              class="ml-2"
+              @update:model-value="handlePathChange"
+            ></v-select>
+          </v-col>
+          <v-col cols="12" sm="6">
+            <span v-if="!scanPaths.length" class="text-caption text-error">请先在配置中设置媒体库路径</span>
+          </v-col>
+        </v-row>
+        
         <v-row class="mb-4">
           <v-col cols="12" sm="6">
-            <v-btn color="primary" size="small" class="mr-2" @click="scanOrphanSubtitles" :loading="scanning">
+            <v-btn color="primary" size="small" class="mr-2" @click="scanOrphanSubtitles" :loading="scanning" :disabled="!scanPaths.length">
               <v-icon icon="mdi-search" class="mr-1"></v-icon>
-              扫描孤儿字幕
+              扫描残留弹幕
+            </v-btn>
+            <v-btn color="info" size="small" class="mr-2" @click="selectAll" :disabled="!orphanSubtitles.length">
+              <v-icon icon="mdi-check-all" class="mr-1"></v-icon>
+              全选
             </v-btn>
             <v-btn color="error" size="small" class="mr-2" @click="cleanSelected" :disabled="!selectedPaths.length" :loading="cleaning">
               <v-icon icon="mdi-delete" class="mr-1"></v-icon>
               清理选中 ({{ selectedPaths.length }})
             </v-btn>
-            <v-btn color="info" size="small" @click="selectAll" :disabled="!orphanSubtitles.length">
-              <v-icon icon="mdi-check-all" class="mr-1"></v-icon>
-              全选
+            <v-btn color="error" size="small" variant="outlined" @click="cleanAll" :disabled="!orphanSubtitles.length" :loading="cleaning">
+              <v-icon icon="mdi-delete-forever" class="mr-1"></v-icon>
+              全部删除
             </v-btn>
           </v-col>
           <v-col cols="12" sm="6">
@@ -55,8 +84,8 @@
             ></v-checkbox>
           </template>
           <template v-slot:item.path="{ item }">
-            <div class="text-truncate" :title="item.path">
-              {{ getFileName(item.path) }}
+            <div class="text-caption" :title="item.path">
+              {{ item.path }}
             </div>
           </template>
           <template v-slot:item.size="{ item }">
@@ -65,16 +94,16 @@
           <template v-slot:item.modified_time="{ item }">
             {{ item.modified_time }}
           </template>
-          <template v-slot:item.actions="{ item }">
-            <v-btn icon size="small" color="error" @click="cleanSingle(item.path)">
-              <v-icon icon="mdi-delete"></v-icon>
-            </v-btn>
-          </template>
         </v-data-table>
 
-        <div v-if="!scanning && totalFound === 0 && !loading" class="text-center py-8 text-grey">
+        <div v-if="!scanning && totalFound === 0 && !loading && scanPaths.length" class="text-center py-8 text-grey">
           <v-icon icon="mdi-check-circle" size="48" color="success"></v-icon>
-          <p class="mt-2">没有找到孤儿字幕文件</p>
+          <p class="mt-2">没有找到残留弹幕字幕文件</p>
+        </div>
+        
+        <div v-if="!scanPaths.length && !scanning" class="text-center py-8 text-grey">
+          <v-icon icon="mdi-alert-circle" size="48" color="warning"></v-icon>
+          <p class="mt-2">请先在配置中设置媒体库路径</p>
         </div>
       </v-card-text>
     </v-card>
@@ -82,7 +111,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 const props = defineProps({
   api: { 
@@ -98,38 +127,71 @@ const selectedPaths = ref([])
 const scanning = ref(false)
 const cleaning = ref(false)
 const loading = ref(false)
-const scanPath = ref('')
+const scanPaths = ref([])
+const selectedPathsList = ref([])
+
+const pathOptions = computed(() => {
+  const options = []
+  if (scanPaths.value.length > 0) {
+    options.push({ label: '全部媒体库路径', value: '__all__' })
+    scanPaths.value.forEach((path, index) => {
+      options.push({ label: path, value: path })
+    })
+  }
+  return options
+})
 
 const headers = [
   { text: '', value: 'select', width: '5%' },
-  { text: '文件路径', value: 'path', width: '50%' },
+  { text: '文件路径', value: 'path', width: '60%' },
   { text: '大小', value: 'size', width: '15%' },
-  { text: '修改时间', value: 'modified_time', width: '20%' },
-  { text: '操作', value: 'actions', width: '10%' }
+  { text: '修改时间', value: 'modified_time', width: '20%' }
 ]
+
+const handlePathChange = (newVal) => {
+  if (!newVal || newVal.length === 0) {
+    selectedPathsList.value = ['__all__']
+  }
+}
+
+const getScanPaths = () => {
+  if (!selectedPathsList.value || selectedPathsList.value.length === 0) {
+    return scanPaths.value
+  }
+  if (selectedPathsList.value.includes('__all__')) {
+    return scanPaths.value
+  }
+  return selectedPathsList.value
+}
 
 const scanOrphanSubtitles = async () => {
   scanning.value = true
   selectedPaths.value = []
   try {
-    const data = await props.api.get('plugin/DanmuTV/scan_orphan_subtitles')
+    const paths = getScanPaths()
+    const data = await props.api.get('plugin/DanmuTV/scan_orphan_subtitles', {
+      params: { path: paths.join('\n') }
+    })
     if (data && data.success) {
       orphanSubtitles.value = data.data.orphan_subtitles || []
       totalFound.value = data.data.total_found || 0
-      scanPath.value = data.data.scan_path || ''
     }
   } catch (error) {
-    console.error('扫描孤儿字幕失败:', error)
+    console.error('扫描残留弹幕失败:', error)
   } finally {
     scanning.value = false
   }
 }
 
-const fetchScanPath = async () => {
+const fetchConfig = async () => {
   try {
     const data = await props.api.get('plugin/DanmuTV/get_config')
     if (data && data.success) {
-      scanPath.value = data.data.path || ''
+      const path = data.data.path || ''
+      scanPaths.value = path.split('\n').filter(p => p.trim())
+      if (scanPaths.value.length > 0) {
+        selectedPathsList.value = ['__all__']
+      }
     }
   } catch (error) {
     console.error('获取配置失败:', error)
@@ -167,16 +229,34 @@ const cleanSelected = async () => {
   }
 }
 
+const cleanAll = async () => {
+  if (!orphanSubtitles.value.length) return
+  if (!confirm('确定要删除所有找到的残留弹幕字幕文件吗？此操作不可恢复。')) {
+    return
+  }
+  cleaning.value = true
+  try {
+    const paths = orphanSubtitles.value.map(item => item.path)
+    const data = await props.api.post('plugin/DanmuTV/clean_orphan_subtitles', paths)
+    if (data && data.success) {
+      cleanedCount.value += data.data.cleaned_count || 0
+      orphanSubtitles.value = []
+      totalFound.value = 0
+      selectedPaths.value = []
+    }
+  } catch (error) {
+    console.error('清理所有字幕失败:', error)
+  } finally {
+    cleaning.value = false
+  }
+}
+
 const selectAll = () => {
   if (selectedPaths.value.length === orphanSubtitles.value.length) {
     selectedPaths.value = []
   } else {
     selectedPaths.value = orphanSubtitles.value.map(item => item.path)
   }
-}
-
-const getFileName = (filePath) => {
-  return filePath.split('/').pop() || filePath
 }
 
 const formatSize = (bytes) => {
@@ -188,7 +268,7 @@ const formatSize = (bytes) => {
 }
 
 onMounted(() => {
-  fetchScanPath()
+  fetchConfig()
 })
 </script>
 

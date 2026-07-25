@@ -690,7 +690,7 @@ class DanmuTV(_PluginBase):
             "endpoint": self.scan_orphan_subtitles,
             "methods": ["GET"],
             "auth": "bear",
-            "summary": "扫描孤儿字幕文件",
+            "summary": "扫描残留弹幕字幕文件",
             "description": "扫描媒体路径下没有对应媒体文件的字幕文件"
         },
         {
@@ -698,8 +698,8 @@ class DanmuTV(_PluginBase):
             "endpoint": self.clean_orphan_subtitles,
             "methods": ["POST"],
             "auth": "bear",
-            "summary": "清理孤儿字幕文件",
-            "description": "清理指定的孤儿字幕文件"
+            "summary": "清理残留弹幕字幕文件",
+            "description": "清理指定的残留弹幕字幕文件"
         },
         {
             "path": "/scan_directory_stats",
@@ -2293,12 +2293,12 @@ class DanmuTV(_PluginBase):
                     os.remove(file_path)
                     cleaned_count += 1
                     cleaned_paths.append(file_path)
-                    logger.info(f"已清理孤儿字幕文件: {file_path}")
+                    logger.info(f"已清理残留弹幕字幕文件: {file_path}")
                 else:
                     failed_count += 1
             except Exception as e:
                 failed_count += 1
-                logger.error(f"清理孤儿字幕文件失败: {file_path}, 错误: {e}")
+                logger.error(f"清理残留弹幕字幕文件失败: {file_path}, 错误: {e}")
         
         return schemas.Response(
             success=True,
