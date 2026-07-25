@@ -5,6 +5,18 @@
         <v-icon icon="mdi-history" color="primary" size="small" class="mr-2"></v-icon>
         历史记录
         <span class="text-sm text-grey ml-2">({{ total }} 条)</span>
+        <v-spacer></v-spacer>
+        <v-switch
+          v-model="showDetails"
+          label="显示详情"
+          color="primary"
+          hide-details
+          size="small"
+          class="mr-2"
+        ></v-switch>
+        <v-btn color="error" size="small" variant="tonal" prepend-icon="mdi-delete" @click="clearHistory">
+          清空历史
+        </v-btn>
       </v-card-title>
       <v-card-text class="px-3 py-2">
         <v-data-table
@@ -37,7 +49,7 @@
           </template>
           <template v-slot:expanded-item="{ item }">
             <td colspan="7">
-              <div v-if="item.details && item.details.length > 0">
+              <div v-if="showDetails && item.details && item.details.length > 0">
                 <v-data-table
                   :headers="detailHeaders"
                   :items="item.details"
@@ -66,7 +78,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 
 const props = defineProps({
   api: { 
@@ -78,6 +90,7 @@ const props = defineProps({
 const history = ref([])
 const total = ref(0)
 const loading = ref(false)
+const showDetails = ref(false)
 
 const headers = [
   { text: '时间', value: 'timestamp', width: '18%' },
@@ -97,7 +110,9 @@ const detailHeaders = [
 const fetchHistory = async () => {
   loading.value = true
   try {
-    const data = await props.api.get('plugin/DanmuTV/history')
+    const data = await props.api.get('plugin/DanmuTV/history', {
+      params: { include_details: showDetails.value }
+    })
     if (data && data.success) {
       history.value = data.data.history || []
       total.value = data.data.total || 0
@@ -106,6 +121,15 @@ const fetchHistory = async () => {
     console.error('获取历史记录失败:', error)
   } finally {
     loading.value = false
+  }
+}
+
+const clearHistory = async () => {
+  try {
+    await props.api.post('plugin/DanmuTV/clear_history')
+    await fetchHistory()
+  } catch (error) {
+    console.error('清空历史记录失败:', error)
   }
 }
 
@@ -139,6 +163,10 @@ const getTypeColor = (type) => {
   return colors[type] || 'info'
 }
 
+watch(showDetails, () => {
+  fetchHistory()
+})
+
 onMounted(() => {
   fetchHistory()
 })
@@ -157,11 +185,11 @@ onMounted(() => {
   background-image: linear-gradient(to right, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.95)), 
                     repeating-linear-gradient(45deg, rgba(var(--v-theme-primary), 0.03), rgba(var(--v-theme-primary), 0.03) 10px, transparent 10px, transparent 20px);
   background-attachment: fixed;
-  box-shadow: 0 1px 2px rgba(var(--v-border-color), 0.05) !important;
+  box-shadow: 0 1px 2px rgba(var(--v-border-color), var(--v-border-opacity)) !important;
   transition: all 0.3s ease;
 }
 
 .status-card:hover {
-  box-shadow: 0 3px 6px rgba(var(--v-border-color), 0.1) !important;
+  box-shadow: 0 3px 6px rgba(var(--v-border-color), var(--v-border-opacity)) !important;
 }
 </style>

@@ -689,6 +689,22 @@ class DanmuTV(_PluginBase):
             "auth": "bear",
             "summary": "清理孤儿字幕文件",
             "description": "清理指定的孤儿字幕文件"
+        },
+        {
+            "path": "/scan_directory_stats",
+            "endpoint": self.scan_directory_stats,
+            "methods": ["GET"],
+            "auth": "bear",
+            "summary": "扫描目录统计",
+            "description": "扫描指定目录及其子目录的媒体文件数量统计"
+        },
+        {
+            "path": "/clear_history",
+            "endpoint": self.clear_history,
+            "methods": ["POST"],
+            "auth": "bear",
+            "summary": "清空历史记录",
+            "description": "清空所有刮削历史记录"
         }
         ]
      
@@ -952,7 +968,7 @@ class DanmuTV(_PluginBase):
                 else:
                     # 弹幕数量满足要求，如果之前在重试列表中则移除
                     with self._retry_lock:
-                        removed = self._retry_tasks.pop(file_path, None)
+                        removed = self._retry_tasks.pop(norm, None)
                     if removed:
                         logger.info(f"弹幕数量满足要求，从重试任务中移除: {file_path}")
                         self._save_retry_tasks()
@@ -978,25 +994,27 @@ class DanmuTV(_PluginBase):
         if not self._enable_retry_task:
             return
 
+        norm = self._normalize_path(file_path) or file_path
+
         with self._retry_lock:
             now = datetime.now()
-            if file_path in self._retry_tasks:
-                self._retry_tasks[file_path]["retry_count"] += 1
-                self._retry_tasks[file_path]["last_attempt"] = now
-                self._retry_tasks[file_path]["error_type"] = error_type
+            if norm in self._retry_tasks:
+                self._retry_tasks[norm]["retry_count"] += 1
+                self._retry_tasks[norm]["last_attempt"] = now
+                self._retry_tasks[norm]["error_type"] = error_type
 
-                if self._retry_tasks[file_path]["retry_count"] >= self._max_retry_times:
+                if self._retry_tasks[norm]["retry_count"] >= self._max_retry_times:
                     logger.warning(f"文件 {file_path} 达到最大重试次数 ({self._max_retry_times})，从重试列表中移除")
-                    del self._retry_tasks[file_path]
+                    del self._retry_tasks[norm]
                 else:
-                    retry_count = self._retry_tasks[file_path]["retry_count"]
+                    retry_count = self._retry_tasks[norm]["retry_count"]
                     next_time = self._calculate_next_retry_time(retry_count, error_type)
-                    self._retry_tasks[file_path]["next_retry_time"] = next_time
+                    self._retry_tasks[norm]["next_retry_time"] = next_time
                     logger.info(f"更新重试任务: {file_path}，重试次数: {retry_count}，下次重试: {next_time.strftime('%Y-%m-%d %H:%M:%S')}")
             else:
                 if danmu_count < self._min_danmu_count:
                     next_time = self._calculate_next_retry_time(1, error_type)
-                    self._retry_tasks[file_path] = {
+                    self._retry_tasks[norm] = {
                         "retry_count": 1,
                         "last_attempt": now,
                         "file_path": file_path,
@@ -2023,6 +2041,56 @@ class DanmuTV(_PluginBase):
             }
         )
 
+    def scan_directory_stats(self, directory_path: str = None) -> schemas.Response:
+        if not directory_path:
+            return schemas.Response(success=False, message="缺少目录路径")
+        if not os.path.isdir(directory_path):
+            return schemas.Response(success=False, message="目录不存在")
+        
+        total_files = 0
+        scraped_files = 0
+        dir_stats = {}
+        max_depth = 6
+        
+        for root, dirs, files in os.walk(directory_path):
+            depth = root[len(directory_path):].count(os.sep)
+            if depth >= max_depth:
+                dirs[:] = []
+                continue
+            
+            dirs[:] = [d for d in dirs if not d.startswith('.')]
+            for file in files:
+                if self._is_supported_file(os.path.join(root, file)):
+                    total_files += 1
+                    ass_file = f"{os.path.splitext(os.path.join(root, file))[0]}.danmu.chs.ass"
+                    if os.path.exists(ass_file):
+                        danmu_count = self._count_danmu_lines_cached(ass_file)
+                        if danmu_count >= self._min_danmu_count:
+                            scraped_files += 1
+            
+            dir_stats[root] = {
+                "total_files": total_files,
+                "scraped_files": scraped_files
+            }
+        
+        self._update_directory_record(directory_path, {
+            "scrape_status": {
+                "total_files": total_files,
+                "scraped_files": scraped_files
+            },
+            "last_scrape_time": datetime.now().isoformat(timespec="seconds")
+        })
+        
+        return schemas.Response(
+            success=True,
+            data={
+                "directory_path": directory_path,
+                "total_files": total_files,
+                "scraped_files": scraped_files,
+                "dir_stats": dir_stats
+            }
+        )
+
     def get_history(self, page: int = 1, page_size: int = 20, include_details: bool = False) -> schemas.Response:
         start = (page - 1) * page_size
         end = start + page_size
@@ -2040,6 +2108,14 @@ class DanmuTV(_PluginBase):
                 "total": len(self._global_history),
                 "has_more": end < len(self._global_history)
             }
+        )
+
+    def clear_history(self) -> schemas.Response:
+        self._global_history = []
+        self._save_directory_records()
+        return schemas.Response(
+            success=True,
+            message="历史记录已清空"
         )
 
     def scan_orphan_subtitles(self, path: str = None) -> schemas.Response:

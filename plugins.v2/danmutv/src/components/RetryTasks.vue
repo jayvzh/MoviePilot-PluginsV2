@@ -5,25 +5,19 @@
         <v-icon icon="mdi-alert-circle-outline" color="warning" size="small" class="mr-2"></v-icon>
         重试任务列表
         <span class="text-sm text-grey ml-2">({{ total }} 个)</span>
+        <v-spacer></v-spacer>
+        <v-chip v-if="minDanmuCount" label="最小弹幕数: {{ minDanmuCount }}" size="small" class="mr-2"></v-chip>
+        <v-chip v-if="maxRetryTimes" label="最大重试: {{ maxRetryTimes }}次" size="small" class="mr-2"></v-chip>
+        <v-btn color="primary" size="small" variant="tonal" class="mr-2" @click="processAll">
+          <v-icon icon="mdi-refresh" class="mr-1"></v-icon>
+          全部重试
+        </v-btn>
+        <v-btn color="error" size="small" variant="tonal" @click="clearAll">
+          <v-icon icon="mdi-delete" class="mr-1"></v-icon>
+          清空全部
+        </v-btn>
       </v-card-title>
       <v-card-text class="px-3 py-2">
-        <v-row class="mb-4">
-          <v-col cols="12" sm="6" md="4">
-            <v-btn color="primary" size="small" class="mr-2" @click="processAll">
-              <v-icon icon="mdi-refresh" class="mr-1"></v-icon>
-              全部重试
-            </v-btn>
-            <v-btn color="error" size="small" class="mr-2" @click="clearAll">
-              <v-icon icon="mdi-delete" class="mr-1"></v-icon>
-              清空全部
-            </v-btn>
-          </v-col>
-          <v-col cols="12" sm="6" md="4">
-            <v-chip label="最小弹幕数: {{ minDanmuCount }}" size="small" class="mr-2"></v-chip>
-            <v-chip label="最大重试: {{ maxRetryTimes }}次" size="small"></v-chip>
-          </v-col>
-        </v-row>
-
         <v-data-table
           :headers="headers"
           :items="tasks"
@@ -73,8 +67,8 @@ const props = defineProps({
 
 const tasks = ref([])
 const total = ref(0)
-const minDanmuCount = ref(100)
-const maxRetryTimes = ref(10)
+const minDanmuCount = ref(null)
+const maxRetryTimes = ref(null)
 const loading = ref(false)
 
 const headers = [
@@ -184,11 +178,11 @@ onMounted(() => {
   background-image: linear-gradient(to right, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.95)), 
                     repeating-linear-gradient(45deg, rgba(var(--v-theme-primary), 0.03), rgba(var(--v-theme-primary), 0.03) 10px, transparent 10px, transparent 20px);
   background-attachment: fixed;
-  box-shadow: 0 1px 2px rgba(var(--v-border-color), 0.05) !important;
+  box-shadow: 0 1px 2px rgba(var(--v-border-color), var(--v-border-opacity)) !important;
   transition: all 0.3s ease;
 }
 
 .status-card:hover {
-  box-shadow: 0 3px 6px rgba(var(--v-border-color), 0.1) !important;
+  box-shadow: 0 3px 6px rgba(var(--v-border-color), var(--v-border-opacity)) !important;
 }
 </style>

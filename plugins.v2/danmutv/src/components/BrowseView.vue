@@ -15,25 +15,66 @@
           class="search-field"
           style="max-width: 200px;"
         ></v-text-field>
-        <v-btn
-          v-if="currentPath && directoryContent && directoryContent.type === 'directory'"
-          color="primary"
-          size="small"
-          variant="tonal"
-          class="ml-2"
-          prepend-icon="mdi-download-multiple"
-          :loading="batchStarting"
-          :disabled="scrapingStatus.running"
-          @click="scrapeCurrentDirectory"
-        >
-          刮削本目录
-        </v-btn>
+        <div v-if="currentPath && directoryContent && directoryContent.type === 'directory'" 
+             class="d-flex flex-wrap gap-2 ml-2">
+          <v-btn
+            color="primary"
+            size="small"
+            variant="tonal"
+            prepend-icon="mdi-download-multiple"
+            :loading="batchStarting"
+            :disabled="scrapingStatus.running"
+            @click="scrapeCurrentDirectory"
+          >
+            刮削本目录
+          </v-btn>
+          <v-btn
+            color="info"
+            size="small"
+            variant="tonal"
+            prepend-icon="mdi-bar-chart"
+            :loading="scanningStats"
+            @click="scanDirectoryStats"
+          >
+            扫描统计
+          </v-btn>
+          <v-btn
+            color="warning"
+            size="small"
+            variant="tonal"
+            prepend-icon="mdi-trash-can"
+            :loading="batchStarting"
+            :disabled="scrapingStatus.running"
+            @click="cleanCurrentDirectorySubtitles"
+          >
+            清理字幕
+          </v-btn>
+        </div>
       </v-card-title>
       <v-card-text class="px-3 py-2">
         <v-row>
           <v-col cols="12">
             <div v-if="directoryContent" class="directory-content">
               <v-progress-linear v-if="loading" indeterminate color="primary" class="mb-2"></v-progress-linear>
+              
+              <v-card v-if="scrapingStatus.running" class="mb-4 bg-primary-lighten-5">
+                <v-card-title class="text-caption d-flex align-center px-3 py-2">
+                  <v-icon icon="mdi-loader" color="primary" size="small" class="mr-2 animate-spin"></v-icon>
+                  正在刮削中
+                </v-card-title>
+                <v-card-text class="px-3 py-2">
+                  <v-progress-linear :value="scrapingStatus.total > 0 ? (scrapingStatus.processed / scrapingStatus.total * 100) : 0" 
+                                     color="primary" height="8" class="mb-2"></v-progress-linear>
+                  <div class="flex justify-between">
+                    <span class="text-body-2">当前文件: {{ scrapingStatus.current_file || '-' }}</span>
+                    <span class="text-body-2 font-bold">{{ scrapingStatus.processed }} / {{ scrapingStatus.total }}</span>
+                  </div>
+                  <div class="flex justify-between mt-1">
+                    <span class="text-body-2">成功: <span class="text-success">{{ scrapingStatus.success }}</span> | 失败: <span class="text-error">{{ scrapingStatus.failed }}</span></span>
+                    <span class="text-body-2">耗时: {{ formatDuration(scrapingStatus.duration) }}</span>
+                  </div>
+                </v-card-text>
+              </v-card>
               
               <div v-if="currentPath" 
                    class="back-item d-flex align-center py-2 mb-2"
@@ -44,21 +85,6 @@
                 </span>
               </div>
 
-              <div v-if="currentPath && directoryContent && directoryContent.type === 'directory'" 
-                   class="d-flex flex-wrap gap-2 mb-2">
-                <v-btn
-                  color="warning"
-                  size="small"
-                  variant="tonal"
-                  prepend-icon="mdi-trash-can"
-                  :loading="batchStarting"
-                  :disabled="scrapingStatus.running"
-                  @click="cleanCurrentDirectorySubtitles"
-                >
-                  清理字幕
-                </v-btn>
-              </div>
-              
               <template v-for="(item, index) in filteredItems" :key="index">
                 <div v-if="item.type === 'directory'" 
                      class="directory-item d-flex align-center py-2"
@@ -409,6 +435,7 @@ const notConfigured = ref(false);
 const pathHistory = ref([]);
 
 const searchKeyword = ref('');
+const scanningStats = ref(false);
 
 const manualDialog = ref(false);
 const cleanConfirmDialog = ref(false);
@@ -772,6 +799,31 @@ async function confirmCleanSubtitles() {
     error.value = '清理字幕失败，请检查网络或API';
   } finally {
     batchStarting.value = false;
+  }
+}
+
+async function scanDirectoryStats() {
+  if (!currentPath.value) return;
+  
+  scanningStats.value = true;
+  
+  try {
+    const res = await props.api.get('plugin/DanmuTV/scan_directory_stats', {
+      params: { directory_path: currentPath.value }
+    });
+    
+    if (res && res.success) {
+      successMessage.value = `扫描完成：共 ${res.data.total_files} 个视频文件，已刮削 ${res.data.scraped_files} 个`;
+      await navigateToPath(currentPath.value);
+      emit('refresh');
+    } else {
+      error.value = res?.message || '扫描统计失败';
+    }
+  } catch (err) {
+    console.error('扫描统计失败:', err);
+    error.value = '扫描统计失败，请检查网络或API';
+  } finally {
+    scanningStats.value = false;
   }
 }
 
