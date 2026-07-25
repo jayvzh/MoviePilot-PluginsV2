@@ -8,6 +8,16 @@
       </v-card-title>
       
       <v-card-text class="px-3 py-2">
+        <!-- 插件说明 -->
+        <v-card flat class="rounded mb-3 border config-card">
+          <v-card-text class="d-flex align-center px-3 py-2">
+            <v-icon icon="mdi-information" color="info" class="mr-2" size="small"></v-icon>
+            <span class="text-body-2">
+              此插件用于生成影视弹幕字幕文件，支持电视剧、电影、动漫等多种媒体类型。弹幕来源为自定义弹幕API后端。
+            </span>
+          </v-card-text>
+        </v-card>
+        
         <v-alert v-if="error" type="error" density="compact" class="mb-2 text-caption" variant="tonal" closable>{{ error }}</v-alert>
         <v-alert v-if="successMessage" type="success" density="compact" class="mb-2 text-caption" variant="tonal" closable>{{ successMessage }}</v-alert>
 
@@ -191,10 +201,10 @@
                       prepend-inner-icon="mdi-web"
                       :disabled="saving || testingApi"
                       density="compact"
-                      class="text-caption flex-grow-1"
+                      class="text-caption api-url-field"
                     ></v-text-field>
                     <v-btn
-                      color="secondary"
+                      color="primary"
                       variant="tonal"
                       size="small"
                       :loading="testingApi"
@@ -468,16 +478,6 @@
               ></v-textarea>
             </v-card-text>
           </v-card>
-
-          <!-- 帮助信息卡片 -->
-          <v-card flat class="rounded mb-3 border config-card">
-            <v-card-text class="d-flex align-center px-3 py-2">
-              <v-icon icon="mdi-information" color="info" class="mr-2" size="small"></v-icon>
-              <span class="text-caption">
-                此插件用于生成影视弹幕字幕文件，支持电视剧、电影、动漫等多种媒体类型。弹幕来源为自定义弹幕API后端。
-              </span>
-            </v-card-text>
-          </v-card>
         </v-form>
       </v-card-text>
       
@@ -667,7 +667,7 @@ async function saveFullConfig() {
   try {
     const pluginId = getPluginId();
     if (!pluginId) {
-      throw new Error('获取插件ID失败');
+      throw new Error('获取插件ID');
     }
 
     // 转换配置格式
@@ -839,5 +839,10 @@ onMounted(() => {
 
 .tooltip-content div {
   margin-bottom: 2px;
+}
+
+.api-url-field {
+  flex: 0 0 60%;
+  max-width: 60%;
 }
 </style>

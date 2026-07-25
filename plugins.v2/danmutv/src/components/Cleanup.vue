@@ -185,7 +185,7 @@ const scanOrphanSubtitles = async () => {
 
 const fetchConfig = async () => {
   try {
-    const data = await props.api.get('plugin/DanmuTV/get_config')
+    const data = await props.api.get('plugin/DanmuTV/config')
     if (data && data.success) {
       const path = data.data.path || ''
       scanPaths.value = path.split('\n').filter(p => p.trim())
