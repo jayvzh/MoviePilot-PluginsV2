@@ -98,6 +98,15 @@ class DanmuTV(_PluginBase):
     # Danmu line-count cache: {ass_path: (mtime_ns, size, count)} — skip re-reading unchanged files
     _danmu_count_cache: Dict[str, Tuple[int, int, int]] = {}
     _manual_match_storage_key = "manual_matches"
+    
+    # 统一目录记录模型存储键
+    _directory_records_key = "danmutv_directory_records"
+    _global_history_key = "danmutv_global_history"
+    
+    # 目录记录缓存
+    _directory_records: Dict[str, Dict[str, Any]] = {}
+    # 全局历史记录缓存
+    _global_history: List[Dict[str, Any]] = []
 
     media_chain = MediaChain()
 
@@ -155,6 +164,78 @@ class DanmuTV(_PluginBase):
             payload = self._normalize_manual_entry(info, scope="file")
             if payload:
                 self._manual_file_matches[norm] = payload
+
+    def _load_directory_records(self):
+        stored = self.get_data(self._directory_records_key)
+        if isinstance(stored, dict):
+            self._directory_records = stored
+        else:
+            self._directory_records = {}
+        
+        stored_history = self.get_data(self._global_history_key)
+        if isinstance(stored_history, list):
+            self._global_history = stored_history
+        else:
+            self._global_history = []
+
+    def _save_directory_records(self):
+        try:
+            self.save_data(self._directory_records_key, self._directory_records)
+            self.save_data(self._global_history_key, self._global_history)
+            logger.debug("目录记录和历史记录已保存")
+        except Exception as e:
+            logger.error(f"保存目录记录失败: {e}")
+
+    def _update_directory_record(self, directory: str, data: Dict[str, Any]):
+        norm = self._normalize_path(directory)
+        if not norm:
+            return
+        if norm not in self._directory_records:
+            self._directory_records[norm] = {
+                "scrape_status": {"total_files": 0, "scraped_files": 0},
+                "last_scrape_time": None,
+                "retry_info": {"enabled": False, "next_retry_time": None, "retry_count": 0},
+                "history": []
+            }
+        self._directory_records[norm].update(data)
+        self._save_directory_records()
+
+    def _get_directory_record(self, directory: str) -> Optional[Dict[str, Any]]:
+        norm = self._normalize_path(directory)
+        if not norm:
+            return None
+        return self._directory_records.get(norm)
+
+    def _remove_directory_record(self, directory: str):
+        norm = self._normalize_path(directory)
+        if norm in self._directory_records:
+            del self._directory_records[norm]
+            self._save_directory_records()
+
+    def _validate_and_clean_records(self):
+        stale_paths = []
+        for path in list(self._directory_records.keys()):
+            if not os.path.exists(path):
+                stale_paths.append(path)
+        for path in stale_paths:
+            logger.info(f"清理过期的目录记录: {path}")
+            del self._directory_records[path]
+        if stale_paths:
+            self._save_directory_records()
+
+    def _add_history_record(self, record: Dict[str, Any]):
+        record["id"] = int(time.time() * 1000)
+        record["timestamp"] = datetime.now().isoformat(timespec="seconds")
+        
+        max_summary = 100
+        max_details = 20
+        
+        self._global_history.insert(0, record)
+        
+        if len(self._global_history) > max_summary:
+            self._global_history = self._global_history[:max_summary]
+        
+        self._save_directory_records()
 
     @staticmethod
     def _normalize_manual_entry(data: Any, scope: str) -> Optional[Dict[str, Any]]:
@@ -382,6 +463,10 @@ class DanmuTV(_PluginBase):
                     self._retry_tasks = {}
         # 加载手动匹配缓存
         self._load_manual_matches()
+        # 加载目录记录和历史记录
+        self._load_directory_records()
+        # 惰性验证清理过期记录
+        self._validate_and_clean_records()
         if self._enabled:
             logger.info("弹幕加载插件已启用")
 
@@ -572,6 +657,38 @@ class DanmuTV(_PluginBase):
             "auth": "bear",
             "summary": "检测弹幕API连通性",
             "description": "测试当前配置的弹幕API后端是否可访问"
+        },
+        {
+            "path": "/full_status",
+            "endpoint": self._get_full_status,
+            "methods": ["GET"],
+            "auth": "bear",
+            "summary": "获取完整状态信息",
+            "description": "获取插件状态、统计信息、计划任务和最近一次运行详情"
+        },
+        {
+            "path": "/history",
+            "endpoint": self.get_history,
+            "methods": ["GET"],
+            "auth": "bear",
+            "summary": "获取历史记录",
+            "description": "获取刮削历史记录，支持分页和详情级别控制"
+        },
+        {
+            "path": "/scan_orphan_subtitles",
+            "endpoint": self.scan_orphan_subtitles,
+            "methods": ["GET"],
+            "auth": "bear",
+            "summary": "扫描孤儿字幕文件",
+            "description": "扫描媒体路径下没有对应媒体文件的字幕文件"
+        },
+        {
+            "path": "/clean_orphan_subtitles",
+            "endpoint": self.clean_orphan_subtitles,
+            "methods": ["POST"],
+            "auth": "bear",
+            "summary": "清理孤儿字幕文件",
+            "description": "清理指定的孤儿字幕文件"
         }
         ]
      
@@ -1030,6 +1147,25 @@ class DanmuTV(_PluginBase):
                 self._retry_save_pending = False
             if retry_save_pending:
                 self._save_retry_tasks()
+            
+            self._add_history_record({
+                "type": "batch",
+                "path": label,
+                "processed": summary["total"],
+                "success": summary["success"],
+                "failed": summary["failed"],
+                "duration": summary["duration"]
+            })
+            
+            if files:
+                directory = os.path.dirname(files[0]) if len(files) == 1 else os.path.dirname(os.path.commonprefix(files))
+                self._update_directory_record(directory, {
+                    "scrape_status": {
+                        "total_files": summary["total"],
+                        "scraped_files": summary["success"]
+                    },
+                    "last_scrape_time": datetime.now().isoformat(timespec="seconds")
+                })
         logger.info(
             f"批量刮削完成（{label}）：成功 {summary['success']}，"
             f"失败 {summary['failed']}，共 {summary['total']}"
@@ -1324,6 +1460,15 @@ class DanmuTV(_PluginBase):
                 child["manual_match"] = manual_dir_match
                 child["manual_scope"] = manual_dir_match.get("scope") if manual_dir_match else None
                 child["directory_path"] = entry.path
+                
+                record = self._get_directory_record(entry.path)
+                if record:
+                    child["scrape_status"] = record.get("scrape_status", {})
+                    child["last_scrape_time"] = record.get("last_scrape_time")
+                else:
+                    child["scrape_status"] = {"total_files": 0, "scraped_files": 0}
+                    child["last_scrape_time"] = None
+                
                 result["children"].append(child)
 
             # 添加媒体文件到结果
@@ -1832,3 +1977,153 @@ class DanmuTV(_PluginBase):
                 
         except Exception as e:
             logger.error(f"定时处理重试任务失败: {e}")
+
+    def _get_full_status(self) -> schemas.Response:
+        with self._scrape_lock:
+            progress = dict(self._scrape_progress)
+        if progress.get("running") and progress.get("started_at"):
+            progress["duration"] = int(time.time() - progress["started_at"])
+        progress.pop("started_at", None)
+        
+        stats = {"total_files": 0, "success_count": 0, "failed_count": 0, "retry_tasks_count": 0}
+        
+        for record in self._directory_records.values():
+            scrape_status = record.get("scrape_status", {})
+            stats["total_files"] += scrape_status.get("total_files", 0)
+            stats["success_count"] += scrape_status.get("scraped_files", 0)
+        
+        with self._retry_lock:
+            stats["retry_tasks_count"] = len(self._retry_tasks)
+            retry_tasks = dict(self._retry_tasks)
+        
+        stats["failed_count"] = stats["total_files"] - stats["success_count"]
+        
+        next_retry_time = None
+        for task_info in retry_tasks.values():
+            nrt = task_info.get("next_retry_time")
+            if nrt and (next_retry_time is None or nrt < next_retry_time):
+                next_retry_time = nrt
+        
+        last_run = None
+        if self._global_history:
+            last_run = self._global_history[0]
+        
+        api_status = self.check_api_status()
+        
+        return schemas.Response(
+            success=True,
+            data={
+                "enabled": self._enabled,
+                "api_connected": api_status.success,
+                "api_message": api_status.message,
+                "stats": stats,
+                "next_retry_time": next_retry_time.strftime("%Y-%m-%d %H:%M:%S") if next_retry_time else None,
+                "last_run": last_run,
+                **progress
+            }
+        )
+
+    def get_history(self, page: int = 1, page_size: int = 20, include_details: bool = False) -> schemas.Response:
+        start = (page - 1) * page_size
+        end = start + page_size
+        
+        history_slice = self._global_history[start:end]
+        
+        if not include_details:
+            for record in history_slice:
+                record.pop("details", None)
+        
+        return schemas.Response(
+            success=True,
+            data={
+                "history": history_slice,
+                "total": len(self._global_history),
+                "has_more": end < len(self._global_history)
+            }
+        )
+
+    def scan_orphan_subtitles(self, path: str = None) -> schemas.Response:
+        if not path:
+            path = self._path
+        
+        if not path:
+            return schemas.Response(success=False, message="未配置刮削路径")
+        
+        paths = [p.strip() for p in path.split('\n') if p.strip()]
+        orphan_subtitles = []
+        
+        media_extensions = {'.mp4', '.mkv', '.strm'}
+        subtitle_extensions = {'.ass', '.srt'}
+        
+        for scan_path in paths:
+            if not os.path.exists(scan_path):
+                continue
+            
+            for root, _, files in os.walk(scan_path):
+                for file in files:
+                    _, ext = os.path.splitext(file)
+                    if ext.lower() not in subtitle_extensions:
+                        continue
+                    
+                    if '.withDanmu.ass' in file:
+                        continue
+                    
+                    full_path = os.path.join(root, file)
+                    base_name = os.path.splitext(full_path)[0]
+                    
+                    has_media = False
+                    for media_ext in media_extensions:
+                        if os.path.exists(base_name + media_ext):
+                            has_media = True
+                            break
+                    
+                    if not has_media:
+                        try:
+                            stat_result = os.stat(full_path)
+                            orphan_subtitles.append({
+                                "path": full_path,
+                                "size": stat_result.st_size,
+                                "modified_time": datetime.fromtimestamp(stat_result.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+                            })
+                        except OSError:
+                            continue
+        
+        return schemas.Response(
+            success=True,
+            data={
+                "scanning": False,
+                "orphan_subtitles": orphan_subtitles,
+                "total_found": len(orphan_subtitles),
+                "scan_path": path
+            }
+        )
+
+    def clean_orphan_subtitles(self, paths: List[str] = None) -> schemas.Response:
+        if not paths or not isinstance(paths, list):
+            return schemas.Response(success=False, message="请提供要清理的文件路径列表")
+        
+        cleaned_count = 0
+        failed_count = 0
+        cleaned_paths = []
+        
+        for file_path in paths:
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    cleaned_count += 1
+                    cleaned_paths.append(file_path)
+                    logger.info(f"已清理孤儿字幕文件: {file_path}")
+                else:
+                    failed_count += 1
+            except Exception as e:
+                failed_count += 1
+                logger.error(f"清理孤儿字幕文件失败: {file_path}, 错误: {e}")
+        
+        return schemas.Response(
+            success=True,
+            data={
+                "cleaned_count": cleaned_count,
+                "failed_count": failed_count,
+                "cleaned_paths": cleaned_paths
+            }
+        )
