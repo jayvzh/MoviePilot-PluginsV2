@@ -186,8 +186,9 @@ const scanOrphanSubtitles = async () => {
 const fetchConfig = async () => {
   try {
     const data = await props.api.get('plugin/DanmuTV/config')
-    if (data && data.success) {
-      const path = data.data.path || ''
+    if (data) {
+      // /config 端点直接返回配置对象，没有 success/data 包装
+      const path = data.path || ''
       scanPaths.value = path.split('\n').filter(p => p.trim())
       if (scanPaths.value.length > 0) {
         selectedPathsList.value = ['__all__']
