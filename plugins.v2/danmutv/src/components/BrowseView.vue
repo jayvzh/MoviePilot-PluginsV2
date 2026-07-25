@@ -4,54 +4,65 @@
       <v-card-title class="text-caption d-flex align-center px-3 py-2 bg-primary-lighten-5">
         <v-icon icon="mdi-folder" class="mr-2" color="primary" size="small" />
         <span>目录浏览</span>
-        <v-spacer></v-spacer>
-        <v-text-field
-          v-model="searchKeyword"
-          density="compact"
-          variant="outlined"
-          hide-details
-          placeholder="搜索文件/目录"
-          prepend-inner-icon="mdi-magnify"
-          class="search-field"
-          style="max-width: 200px;"
-        ></v-text-field>
-        <div v-if="currentPath && directoryContent && directoryContent.type === 'directory'" 
-             class="d-flex flex-wrap gap-2 ml-2">
-          <v-btn
-            color="primary"
-            size="small"
-            variant="tonal"
-            prepend-icon="mdi-download-multiple"
-            :loading="batchStarting"
-            :disabled="scrapingStatus.running"
-            @click="scrapeCurrentDirectory"
-          >
-            刮削本目录
-          </v-btn>
-          <v-btn
-            color="info"
-            size="small"
-            variant="tonal"
-            prepend-icon="mdi-bar-chart"
-            :loading="scanningStats"
-            @click="scanDirectoryStats"
-          >
-            扫描统计
-          </v-btn>
-          <v-btn
-            color="warning"
-            size="small"
-            variant="tonal"
-            prepend-icon="mdi-trash-can"
-            :loading="batchStarting"
-            :disabled="scrapingStatus.running"
-            @click="cleanCurrentDirectorySubtitles"
-          >
-            清理字幕
-          </v-btn>
-        </div>
       </v-card-title>
       <v-card-text class="px-3 py-2">
+        <v-row class="mb-2">
+          <v-col cols="12">
+            <v-text-field
+              v-model="searchKeyword"
+              density="compact"
+              variant="outlined"
+              hide-details
+              placeholder="搜索文件/目录"
+              prepend-inner-icon="mdi-magnify"
+              class="search-field"
+            ></v-text-field>
+          </v-col>
+        </v-row>
+        <v-row class="mb-3">
+          <v-col cols="12" sm="4" md="2">
+            <v-btn
+              color="primary"
+              size="small"
+              variant="tonal"
+              prepend-icon="mdi-download-multiple"
+              :loading="batchStarting"
+              :disabled="scrapingStatus.running"
+              @click="scrapeCurrentDirectory"
+              class="w-full"
+            >
+              刮削本目录
+            </v-btn>
+          </v-col>
+          <v-col cols="12" sm="4" md="2">
+            <v-btn
+              color="info"
+              size="small"
+              variant="tonal"
+              prepend-icon="mdi-bar-chart"
+              :loading="scanningStats"
+              @click="scanDirectoryStats"
+              class="w-full"
+            >
+              扫描统计
+            </v-btn>
+          </v-col>
+          <v-col cols="12" sm="4" md="2">
+            <v-btn
+              color="warning"
+              size="small"
+              variant="tonal"
+              prepend-icon="mdi-trash-can"
+              :loading="batchStarting"
+              :disabled="scrapingStatus.running"
+              @click="cleanCurrentDirectorySubtitles"
+              class="w-full"
+            >
+              清理字幕
+            </v-btn>
+          </v-col>
+        </v-row>
+
         <v-row>
           <v-col cols="12">
             <div v-if="directoryContent" class="directory-content">
@@ -61,6 +72,16 @@
                 <v-card-title class="text-caption d-flex align-center px-3 py-2">
                   <v-icon icon="mdi-loader" color="primary" size="small" class="mr-2 animate-spin"></v-icon>
                   正在刮削中
+                  <v-spacer></v-spacer>
+                  <v-btn
+                    color="error"
+                    size="small"
+                    variant="tonal"
+                    prepend-icon="mdi-stop"
+                    @click="abortScraping"
+                  >
+                    中止
+                  </v-btn>
                 </v-card-title>
                 <v-card-text class="px-3 py-2">
                   <v-progress-linear :value="scrapingStatus.total > 0 ? (scrapingStatus.processed / scrapingStatus.total * 100) : 0" 
@@ -824,6 +845,20 @@ async function scanDirectoryStats() {
     error.value = '扫描统计失败，请检查网络或API';
   } finally {
     scanningStats.value = false;
+  }
+}
+
+async function abortScraping() {
+  try {
+    const res = await props.api.get('plugin/DanmuTV/abort_scrape');
+    if (res && res.success) {
+      successMessage.value = '已发送中止请求';
+    } else {
+      error.value = res?.message || '中止失败';
+    }
+  } catch (err) {
+    console.error('中止失败:', err);
+    error.value = '中止失败，请检查网络或API';
   }
 }
 

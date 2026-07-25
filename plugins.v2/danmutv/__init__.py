@@ -62,6 +62,7 @@ class DanmuTV(_PluginBase):
     _min_danmu_count = 100
     _max_retry_times = 10
     _enable_retry_task = True
+    _enable_history_details = False
     _enable_multi_layer = False
     _multi_layer_count = 2
     _random_top_bottom = False
@@ -81,6 +82,7 @@ class DanmuTV(_PluginBase):
     _inflight_files: set = set()
     # 批量刮削进度状态（含全局定时刮削与目录刮削）
     _scrape_lock = threading.Lock()
+    _scrape_aborted = False
     _scrape_progress: Dict[str, Any] = {
         "running": False,
         "total": 0,
@@ -417,6 +419,7 @@ class DanmuTV(_PluginBase):
             self._useTmdbID = config.get("useTmdbID", True)
             self._auto_scrape = config.get("auto_scrape", False)
             self._enable_retry_task = config.get("enable_retry_task", True)
+            self._enable_history_details = config.get("enable_history_details", False)
             self._screen_area = config.get("screen_area", "full")
             self._enable_strm = config.get("enable_strm", True)
             self._danmu_api_url = config.get("danmu_api_url", self._DEFAULT_DANMU_API_URL)
@@ -587,6 +590,14 @@ class DanmuTV(_PluginBase):
             "description": "后台批量刮削指定目录下所有媒体文件，需要directory_path参数"
         },
         {
+            "path": "/abort_scrape",
+            "endpoint": self.abort_scrape,
+            "methods": ["GET"],
+            "auth": "bear",
+            "summary": "中止刮削",
+            "description": "中止正在进行的批量刮削任务"
+        },
+        {
             "path": "/retry_tasks",
             "endpoint": self.get_retry_tasks,
             "methods": ["GET"],
@@ -725,6 +736,7 @@ class DanmuTV(_PluginBase):
             "useTmdbID": self._useTmdbID,
             "auto_scrape": self._auto_scrape,
             "enable_retry_task": self._enable_retry_task,
+            "enable_history_details": self._enable_history_details,
             "screen_area": self._screen_area,
             "enable_strm": self._enable_strm,
             "danmu_api_url": self._danmu_api_url,
@@ -750,6 +762,7 @@ class DanmuTV(_PluginBase):
             self._useTmdbID = config.get("useTmdbID", True)
             self._auto_scrape = config.get("auto_scrape", False)
             self._enable_retry_task = config.get("enable_retry_task", True)
+            self._enable_history_details = config.get("enable_history_details", False)
             self._screen_area = config.get("screen_area", "full")
             self._enable_strm = config.get("enable_strm", True)
             self._danmu_api_url = config.get("danmu_api_url", self._DEFAULT_DANMU_API_URL)
@@ -1143,12 +1156,39 @@ class DanmuTV(_PluginBase):
         with self._retry_lock:
             self._retry_save_deferred = True
             self._retry_save_pending = False
+        
+        details = []
+        
         # 批量刮削串行执行，避免并发请求触发API限流(429)
         try:
             for file_path in files:
+                if self._scrape_aborted:
+                    logger.info(f"批量刮削已中止（{label}），停止处理剩余文件")
+                    break
+                
                 with self._scrape_lock:
                     self._scrape_progress["current_file"] = os.path.basename(file_path)
-                self._scrape_one(file_path)
+                
+                if self._enable_history_details:
+                    result = None
+                    danmu_count = 0
+                    try:
+                        result = self.generate_danmu(file_path)
+                        ok = isinstance(result, str) and result.endswith('.danmu.chs.ass')
+                        if ok and os.path.exists(result):
+                            danmu_count = self._count_danmu_lines_cached(result)
+                    except Exception as e:
+                        logger.error(f"刮削文件失败: {file_path}: {e}")
+                        ok = False
+                    
+                    details.append({
+                        "file": os.path.basename(file_path),
+                        "result": "success" if ok else "failed",
+                        "danmu_count": danmu_count
+                    })
+                else:
+                    self._scrape_one(file_path)
+                
                 # 文件间短暂间隔，给API缓冲时间
                 time.sleep(0.5)
         finally:
@@ -1166,14 +1206,22 @@ class DanmuTV(_PluginBase):
             if retry_save_pending:
                 self._save_retry_tasks()
             
-            self._add_history_record({
+            history_record = {
                 "type": "batch",
                 "path": label,
                 "processed": summary["total"],
                 "success": summary["success"],
                 "failed": summary["failed"],
-                "duration": summary["duration"]
-            })
+                "duration": summary["duration"],
+                "aborted": self._scrape_aborted
+            }
+            
+            if self._enable_history_details and details:
+                history_record["details"] = details
+            
+            self._add_history_record(history_record)
+            
+            self._scrape_aborted = False
             
             if files:
                 directory = os.path.dirname(files[0]) if len(files) == 1 else os.path.dirname(os.path.commonprefix(files))
@@ -1206,6 +1254,22 @@ class DanmuTV(_PluginBase):
             success=True,
             message=f"已开始刮削，共 {len(files)} 个文件",
             data={"total": len(files)}
+        )
+
+    def abort_scrape(self) -> schemas.Response:
+        """
+        中止正在进行的批量刮削任务
+        """
+        with self._scrape_lock:
+            if not self._scrape_progress.get("running", False):
+                return schemas.Response(success=False, message="没有正在进行的刮削任务")
+            
+            self._scrape_aborted = True
+            logger.info("收到中止刮削请求")
+        
+        return schemas.Response(
+            success=True,
+            message="已发送中止请求，当前文件处理完成后将停止"
         )
 
     def generate_danmu_global(self):

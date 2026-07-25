@@ -6,14 +6,6 @@
         历史记录
         <span class="text-sm text-grey ml-2">({{ total }} 条)</span>
         <v-spacer></v-spacer>
-        <v-switch
-          v-model="showDetails"
-          label="显示详情"
-          color="primary"
-          hide-details
-          size="small"
-          class="mr-2"
-        ></v-switch>
         <v-btn color="error" size="small" variant="tonal" prepend-icon="mdi-delete" @click="clearHistory">
           清空历史
         </v-btn>
@@ -25,6 +17,7 @@
           :items-per-page="10"
           :loading="loading"
           class="elevation-1"
+          item-key="id"
         >
           <template v-slot:item.timestamp="{ item }">
             {{ formatTime(item.timestamp) }}
@@ -49,7 +42,7 @@
           </template>
           <template v-slot:expanded-item="{ item }">
             <td colspan="7">
-              <div v-if="showDetails && item.details && item.details.length > 0">
+              <div v-if="item.details && item.details.length > 0">
                 <v-data-table
                   :headers="detailHeaders"
                   :items="item.details"
@@ -63,7 +56,7 @@
                   </template>
                 </v-data-table>
               </div>
-              <div v-else class="text-grey text-sm">暂无详情</div>
+              <div v-else class="text-grey text-sm">暂无详情（需在配置中开启"记录历史详情"）</div>
             </td>
           </template>
         </v-data-table>
@@ -78,7 +71,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 
 const props = defineProps({
   api: { 
@@ -90,7 +83,6 @@ const props = defineProps({
 const history = ref([])
 const total = ref(0)
 const loading = ref(false)
-const showDetails = ref(false)
 
 const headers = [
   { text: '时间', value: 'timestamp', width: '18%' },
@@ -111,7 +103,7 @@ const fetchHistory = async () => {
   loading.value = true
   try {
     const data = await props.api.get('plugin/DanmuTV/history', {
-      params: { include_details: showDetails.value }
+      params: { include_details: true }
     })
     if (data && data.success) {
       history.value = data.data.history || []
@@ -162,10 +154,6 @@ const getTypeColor = (type) => {
   }
   return colors[type] || 'info'
 }
-
-watch(showDetails, () => {
-  fetchHistory()
-})
 
 onMounted(() => {
   fetchHistory()

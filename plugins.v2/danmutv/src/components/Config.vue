@@ -110,6 +110,28 @@
                 </v-col>
                 <v-col cols="12" md="6">
                   <div class="setting-item d-flex align-center py-2">
+                    <v-icon icon="mdi-history" size="small" :color="editableConfig.enable_history_details ? 'info' : 'grey'" class="mr-3"></v-icon>
+                    <div class="setting-content flex-grow-1">
+                      <div class="d-flex justify-space-between align-center">
+                        <div>
+                          <div class="text-subtitle-2">记录历史详情</div>
+                          <div class="text-caption text-grey">记录批量刮削时每个文件的处理详情</div>
+                        </div>
+                        <v-switch
+                          v-model="editableConfig.enable_history_details"
+                          color="info"
+                          inset
+                          :disabled="saving"
+                          density="compact"
+                          hide-details
+                          class="small-switch"
+                        ></v-switch>
+                      </div>
+                    </div>
+                  </div>
+                </v-col>
+                <v-col cols="12" md="6">
+                  <div class="setting-item d-flex align-center py-2">
                     <v-icon icon="mdi-file-video-outline" size="small" :color="editableConfig.enable_strm ? 'info' : 'grey'" class="mr-3"></v-icon>
                     <div class="setting-content flex-grow-1">
                       <div class="d-flex justify-space-between align-center">
