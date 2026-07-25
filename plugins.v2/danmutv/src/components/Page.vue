@@ -92,19 +92,6 @@
             ></v-text-field>
             <v-btn
               v-if="currentPath && directoryContent && directoryContent.type === 'directory'"
-              color="warning"
-              size="small"
-              variant="tonal"
-              class="ml-2"
-              prepend-icon="mdi-trash-can"
-              :loading="batchStarting"
-              :disabled="scrapingStatus.running"
-              @click="cleanCurrentDirectorySubtitles"
-            >
-              清理字幕
-            </v-btn>
-            <v-btn
-              v-if="currentPath && directoryContent && directoryContent.type === 'directory'"
               color="primary"
               size="small"
               variant="tonal"
@@ -131,6 +118,22 @@
                     <span class="text-subtitle-2 text-primary cursor-pointer">
                       {{ directoryContent.is_root ? '返回目录列表' : '返回上级目录' }}
                     </span>
+                  </div>
+
+                  <!-- 操作按钮区域 -->
+                  <div v-if="currentPath && directoryContent && directoryContent.type === 'directory'" 
+                       class="d-flex flex-wrap gap-2 mb-2">
+                    <v-btn
+                      color="warning"
+                      size="small"
+                      variant="tonal"
+                      prepend-icon="mdi-trash-can"
+                      :loading="batchStarting"
+                      :disabled="scrapingStatus.running"
+                      @click="cleanCurrentDirectorySubtitles"
+                    >
+                      清理字幕
+                    </v-btn>
                   </div>
                   
                   <template v-for="(item, index) in filteredItems" :key="index">
@@ -589,6 +592,7 @@ async function navigateToPath(path) {
     loading.value = true;
     error.value = null;
     notConfigured.value = false;
+    searchKeyword.value = '';
 
     // 如果是空路径，加载根目录
     if (!path) {
