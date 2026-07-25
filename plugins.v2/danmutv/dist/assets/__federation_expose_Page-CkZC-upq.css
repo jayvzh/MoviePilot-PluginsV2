@@ -96,20 +96,20 @@ to { transform: rotate(360deg);
   cursor: pointer;
 }
 
-.bg-primary-lighten-5[data-v-8eed1635] {
+.bg-primary-lighten-5[data-v-33f7fdd1] {
   background-color: rgba(var(--v-theme-primary), 0.07);
 }
-.border[data-v-8eed1635] {
+.border[data-v-33f7fdd1] {
   border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
-.status-card[data-v-8eed1635] {
+.status-card[data-v-33f7fdd1] {
   background-image: linear-gradient(to right, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.95)), 
                     repeating-linear-gradient(45deg, rgba(var(--v-theme-primary), 0.03), rgba(var(--v-theme-primary), 0.03) 10px, transparent 10px, transparent 20px);
   background-attachment: fixed;
   box-shadow: 0 1px 2px rgba(var(--v-border-color), var(--v-border-opacity)) !important;
   transition: all 0.3s ease;
 }
-.status-card[data-v-8eed1635]:hover {
+.status-card[data-v-33f7fdd1]:hover {
   box-shadow: 0 3px 6px rgba(var(--v-border-color), var(--v-border-opacity)) !important;
 }
 
@@ -130,20 +130,20 @@ to { transform: rotate(360deg);
   box-shadow: 0 3px 6px rgba(var(--v-border-color), var(--v-border-opacity)) !important;
 }
 
-.bg-primary-lighten-5[data-v-636e4b79] {
+.bg-primary-lighten-5[data-v-af4b2faf] {
   background-color: rgba(var(--v-theme-primary), 0.07);
 }
-.border[data-v-636e4b79] {
+.border[data-v-af4b2faf] {
   border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
-.status-card[data-v-636e4b79] {
+.status-card[data-v-af4b2faf] {
   background-image: linear-gradient(to right, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.95)), 
                     repeating-linear-gradient(45deg, rgba(var(--v-theme-primary), 0.03), rgba(var(--v-theme-primary), 0.03) 10px, transparent 10px, transparent 20px);
   background-attachment: fixed;
   box-shadow: 0 1px 2px rgba(var(--v-border-color), 0.05) !important;
   transition: all 0.3s ease;
 }
-.status-card[data-v-636e4b79]:hover {
+.status-card[data-v-af4b2faf]:hover {
   box-shadow: 0 3px 6px rgba(var(--v-border-color), 0.1) !important;
 }
 

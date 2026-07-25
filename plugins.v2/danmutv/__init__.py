@@ -766,12 +766,9 @@ class DanmuTV(_PluginBase):
                 "density": self._density,
                 "width_scale": self._width_scale
             })
-            
-            self.stop_service()
-            self.init_plugin(self.get_config())
-            
-            logger.info(f"{self.plugin_name}: 配置已保存并通过 init_plugin 重新初始化。当前内存状态: enabled={self._enabled}")
-            
+
+            logger.info(f"{self.plugin_name}: 配置已保存。当前内存状态: enabled={self._enabled}")
+
             return schemas.Response(success=True, message="配置已保存", data=self._get_config())
         except Exception as e:
             logger.error(f"保存配置失败: {e}")

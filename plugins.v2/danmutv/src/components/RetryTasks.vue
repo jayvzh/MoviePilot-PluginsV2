@@ -6,8 +6,8 @@
         重试任务列表
         <span class="text-sm text-grey ml-2">({{ total }} 个)</span>
         <v-spacer></v-spacer>
-        <v-chip v-if="minDanmuCount" label="最小弹幕数: {{ minDanmuCount }}" size="small" class="mr-2"></v-chip>
-        <v-chip v-if="maxRetryTimes" label="最大重试: {{ maxRetryTimes }}次" size="small" class="mr-2"></v-chip>
+        <v-chip v-if="minDanmuCount" size="small" variant="tonal" color="grey" class="mr-2">最小弹幕数: {{ minDanmuCount }}</v-chip>
+        <v-chip v-if="maxRetryTimes" size="small" variant="tonal" color="grey" class="mr-2">最大重试: {{ maxRetryTimes }}次</v-chip>
         <v-btn color="primary" size="small" variant="tonal" class="mr-2" @click="processAll">
           <v-icon icon="mdi-refresh" class="mr-1"></v-icon>
           全部重试
