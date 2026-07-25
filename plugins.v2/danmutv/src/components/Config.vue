@@ -665,11 +665,6 @@ async function saveFullConfig() {
   saving.value = true;
 
   try {
-    const pluginId = getPluginId();
-    if (!pluginId) {
-      throw new Error('获取插件ID');
-    }
-
     // 转换配置格式
     const configToSave = {
       enabled: editableConfig.enable,
@@ -694,17 +689,11 @@ async function saveFullConfig() {
       width_scale: editableConfig.width_scale
     };
 
-    // 发送保存请求
-    const result = await props.api.post(`plugin/${pluginId}/config`, configToSave);
-    
-    if (result && result.success) {
-      // 更新服务器配置
-      Object.assign(serverFetchedConfig, JSON.parse(JSON.stringify(configToSave)));
-      successMessage.value = '配置已保存';
-      emit('config-updated-on-server');
-    } else {
-      throw new Error(result?.message || '保存配置失败');
-    }
+    // 通过 emit('save') 触发 MoviePilot 标准配置保存流程（保存配置 + init_plugin + 刷新小绿灯）
+    emit('save', JSON.parse(JSON.stringify(configToSave)));
+    // 更新本地缓存
+    Object.assign(serverFetchedConfig, JSON.parse(JSON.stringify(configToSave)));
+    successMessage.value = '配置已保存';
   } catch (err) {
     console.error('保存配置失败:', err);
     error.value = err.message || '保存配置失败，请检查网络或查看日志';

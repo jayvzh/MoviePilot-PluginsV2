@@ -431,39 +431,8 @@ class DanmuTV(_PluginBase):
             self._density = config.get("density", 100)
             self._width_scale = float(config.get("width_scale", 1.0))
             generator.DanmuAPI.set_api_url(self._danmu_api_url)
-            retry_tasks_str = config.get("retry_tasks", "{}")
-            try:
-                loaded_tasks = json.loads(retry_tasks_str)
-                # 将字符串日期转换为datetime对象，并添加缺失字段的默认值
-                parsed_tasks = {}
-                for file_path, task_info in loaded_tasks.items():
-                    try:
-                        retry_count = task_info.get("retry_count", 1)
-                        last_attempt = datetime.fromisoformat(task_info.get("last_attempt", datetime.now().isoformat()))
-                        
-                        if "next_retry_time" in task_info:
-                            next_retry_time = datetime.fromisoformat(task_info["next_retry_time"])
-                        else:
-                            next_retry_time = self._calculate_next_retry_time(retry_count, task_info.get("error_type", "unknown"))
-                        
-                        parsed_tasks[file_path] = {
-                            "retry_count": retry_count,
-                            "last_attempt": last_attempt,
-                            "file_path": task_info.get("file_path", file_path),
-                            "last_danmu_count": task_info.get("last_danmu_count", 0),
-                            "error_type": task_info.get("error_type", "unknown"),
-                            "next_retry_time": next_retry_time
-                        }
-                    except (ValueError, TypeError) as e:
-                        logger.warning(f"跳过无效的重试任务 {file_path}: {e}")
-                        continue
-                with self._retry_lock:
-                    self._retry_tasks = parsed_tasks
-                logger.info(f"加载了 {len(parsed_tasks)} 个重试任务")
-            except (json.JSONDecodeError, ValueError, TypeError) as e:
-                logger.warning(f"加载重试任务失败，使用空列表: {e}")
-                with self._retry_lock:
-                    self._retry_tasks = {}
+            # 从独立存储加载重试任务（不再放在插件配置中，避免被标准保存流程覆盖）
+            self._load_retry_tasks()
         # 加载手动匹配缓存
         self._load_manual_matches()
         # 加载目录记录和历史记录
@@ -775,16 +744,6 @@ class DanmuTV(_PluginBase):
             self._width_scale = float(config.get("width_scale", 1.0))
             generator.DanmuAPI.set_api_url(self._danmu_api_url)
             
-            retry_tasks_for_save = {}
-            with self._retry_lock:
-                for file_path, task_info in self._retry_tasks.items():
-                    retry_tasks_for_save[file_path] = {
-                        "retry_count": task_info["retry_count"],
-                        "last_attempt": task_info["last_attempt"].isoformat(),
-                        "file_path": task_info["file_path"],
-                        "last_danmu_count": task_info.get("last_danmu_count", 0)
-                    }
-            
             self.update_config({
                 "enabled": self._enabled,
                 "width": self._width,
@@ -805,8 +764,7 @@ class DanmuTV(_PluginBase):
                 "top_ratio": self._top_ratio,
                 "bottom_ratio": self._bottom_ratio,
                 "density": self._density,
-                "width_scale": self._width_scale,
-                "retry_tasks": json.dumps(retry_tasks_for_save)
+                "width_scale": self._width_scale
             })
             
             self.stop_service()
@@ -1057,9 +1015,59 @@ class DanmuTV(_PluginBase):
 
         return datetime.now() + timedelta(minutes=base_minutes)
 
+    def _load_retry_tasks(self):
+        """从独立存储加载重试任务（兼容旧版从配置迁移）"""
+        try:
+            stored = self.get_data("retry_tasks")
+            # 兼容旧版：如果独立存储没有，尝试从配置迁移
+            if stored is None:
+                old_config = self.get_config() or {}
+                retry_tasks_str = old_config.get("retry_tasks", "")
+                if retry_tasks_str:
+                    stored = json.loads(retry_tasks_str)
+                    # 迁移到独立存储后，从配置中移除
+                    self.save_data("retry_tasks", stored)
+                    old_config.pop("retry_tasks", None)
+                    self.update_config(old_config)
+                    logger.info("重试任务已从插件配置迁移到独立存储")
+                else:
+                    stored = {}
+            if not isinstance(stored, dict):
+                stored = {}
+
+            parsed_tasks = {}
+            for file_path, task_info in stored.items():
+                try:
+                    retry_count = task_info.get("retry_count", 1)
+                    last_attempt = datetime.fromisoformat(task_info.get("last_attempt", datetime.now().isoformat()))
+
+                    if "next_retry_time" in task_info:
+                        next_retry_time = datetime.fromisoformat(task_info["next_retry_time"])
+                    else:
+                        next_retry_time = self._calculate_next_retry_time(retry_count, task_info.get("error_type", "unknown"))
+
+                    parsed_tasks[file_path] = {
+                        "retry_count": retry_count,
+                        "last_attempt": last_attempt,
+                        "file_path": task_info.get("file_path", file_path),
+                        "last_danmu_count": task_info.get("last_danmu_count", 0),
+                        "error_type": task_info.get("error_type", "unknown"),
+                        "next_retry_time": next_retry_time
+                    }
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"跳过无效的重试任务 {file_path}: {e}")
+                    continue
+            with self._retry_lock:
+                self._retry_tasks = parsed_tasks
+            logger.info(f"加载了 {len(parsed_tasks)} 个重试任务")
+        except Exception as e:
+            logger.warning(f"加载重试任务失败，使用空列表: {e}")
+            with self._retry_lock:
+                self._retry_tasks = {}
+
     def _save_retry_tasks(self):
         """
-        保存重试任务列表到配置（批量刮削期间只标记待保存，结束时统一落盘一次）
+        保存重试任务列表到独立存储（批量刮削期间只标记待保存，结束时统一落盘一次）
         """
         try:
             with self._retry_lock:
@@ -1078,13 +1086,8 @@ class DanmuTV(_PluginBase):
                         "next_retry_time": task_info.get("next_retry_time", datetime.now()).isoformat()
                     }
 
-            # 获取当前配置
-            current_config = self._get_config()
-            current_config["retry_tasks"] = json.dumps(retry_tasks_for_save)
-
-            # 更新配置
-            self.update_config(current_config)
-            logger.debug("重试任务列表已保存到配置")
+            self.save_data("retry_tasks", retry_tasks_for_save)
+            logger.debug("重试任务列表已保存到独立存储")
         except Exception as e:
             logger.error(f"保存重试任务失败: {e}")
 
