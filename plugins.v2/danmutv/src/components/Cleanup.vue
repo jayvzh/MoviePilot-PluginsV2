@@ -17,7 +17,6 @@
         
         <v-row class="mb-3">
           <v-col cols="12" sm="6">
-            <v-chip label="扫描路径:" size="small" class="mr-2"></v-chip>
             <v-select
               v-model="selectedPathsList"
               :items="pathOptions"
@@ -28,7 +27,6 @@
               variant="outlined"
               hide-details
               multiple
-              class="ml-2"
               @update:model-value="handlePathChange"
             ></v-select>
           </v-col>

@@ -9,7 +9,7 @@ from app.core.metainfo import MetaInfo
 from app.core.config import settings
 from app import schemas
 from app.schemas.types import MediaType, EventType, SystemConfigKey
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from typing import Any, List, Dict, Tuple, Optional
 import subprocess
@@ -818,6 +818,7 @@ class DanmuTV(_PluginBase):
                 self._inflight_files.discard(norm)
 
     def _generate_danmu_impl(self, file_path: str) -> Optional[str]:
+        norm = self._normalize_path(file_path) or file_path
         meta = MetaInfo(file_path)
         tmdb_id = None
         episode = None
@@ -933,7 +934,7 @@ class DanmuTV(_PluginBase):
                 logger.info(f"弹幕生成完成，弹幕数量: {danmu_count}")
                 
                 # 检查弹幕数量是否满足要求
-                if self._enable_retry_task and danmu_count < self._min_danmu_count:
+                if danmu_count < self._min_danmu_count:
                     logger.warning(f"弹幕数量 ({danmu_count}) 少于最小要求 ({self._min_danmu_count})，添加到重试任务")
                     self._add_to_retry_if_needed(file_path, danmu_count)
                 else:
@@ -973,15 +974,19 @@ class DanmuTV(_PluginBase):
                 self._retry_tasks[norm]["retry_count"] += 1
                 self._retry_tasks[norm]["last_attempt"] = now
                 self._retry_tasks[norm]["error_type"] = error_type
+                self._retry_tasks[norm]["last_danmu_count"] = danmu_count
 
                 if self._retry_tasks[norm]["retry_count"] >= self._max_retry_times:
-                    logger.warning(f"文件 {file_path} 达到最大重试次数 ({self._max_retry_times})，从重试列表中移除")
+                    logger.warning(
+                        f"⚠️ 文件已达最大重试次数 ({self._max_retry_times})，放弃自动重试: {file_path} "
+                        f"| 最后弹幕数量: {danmu_count} | 错误类型: {error_type} | 请检查手动匹配或弹幕源"
+                    )
                     del self._retry_tasks[norm]
                 else:
                     retry_count = self._retry_tasks[norm]["retry_count"]
                     next_time = self._calculate_next_retry_time(retry_count, error_type)
                     self._retry_tasks[norm]["next_retry_time"] = next_time
-                    logger.info(f"更新重试任务: {file_path}，重试次数: {retry_count}，下次重试: {next_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                    logger.info(f"更新重试任务: {file_path}，重试次数: {retry_count}，弹幕数量: {danmu_count}，下次重试: {next_time.strftime('%Y-%m-%d %H:%M:%S')}")
             else:
                 if danmu_count < self._min_danmu_count:
                     next_time = self._calculate_next_retry_time(1, error_type)
@@ -1017,6 +1022,11 @@ class DanmuTV(_PluginBase):
 
     def _load_retry_tasks(self):
         """从独立存储加载重试任务（兼容旧版从配置迁移）"""
+        # 批量刮削进行中时不重新加载，避免覆盖内存中尚未落盘的重试任务
+        with self._retry_lock:
+            if self._retry_save_deferred:
+                logger.debug("批量刮削进行中，跳过重试任务重新加载")
+                return
         try:
             stored = self.get_data("retry_tasks")
             # 兼容旧版：如果独立存储没有，尝试从配置迁移
@@ -1949,7 +1959,7 @@ class DanmuTV(_PluginBase):
             logger.error(f"扫描子文件夹失败: {subfolder_path}, 错误: {e}")
             return schemas.Response(success=False, message=f"扫描子文件夹失败: {str(e)}")
 
-    def get_retry_tasks(self) -> Dict[str, Any]:
+    def get_retry_tasks(self) -> schemas.Response:
         """
         获取重试任务列表
         :return: 重试任务列表
