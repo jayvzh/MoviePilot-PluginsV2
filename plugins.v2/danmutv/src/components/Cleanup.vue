@@ -6,6 +6,12 @@
         孤儿字幕清理
       </v-card-title>
       <v-card-text class="px-3 py-2">
+        <v-row class="mb-3">
+          <v-col cols="12">
+            <v-chip label="扫描路径:" size="small" class="mr-2"></v-chip>
+            <span class="text-caption text-grey">{{ scanPath || '未配置' }}</span>
+          </v-col>
+        </v-row>
         <v-row class="mb-4">
           <v-col cols="12" sm="6">
             <v-btn color="primary" size="small" class="mr-2" @click="scanOrphanSubtitles" :loading="scanning">
@@ -22,8 +28,8 @@
             </v-btn>
           </v-col>
           <v-col cols="12" sm="6">
-            <v-chip label="找到: {{ totalFound }} 个" size="small" class="mr-2"></v-chip>
-            <v-chip label="已清理: {{ cleanedCount }} 个" size="small"></v-chip>
+            <v-chip v-if="totalFound > 0" label="找到: {{ totalFound }} 个" size="small" class="mr-2"></v-chip>
+            <v-chip v-if="cleanedCount > 0" label="已清理: {{ cleanedCount }} 个" size="small"></v-chip>
           </v-col>
         </v-row>
 
@@ -92,6 +98,7 @@ const selectedPaths = ref([])
 const scanning = ref(false)
 const cleaning = ref(false)
 const loading = ref(false)
+const scanPath = ref('')
 
 const headers = [
   { text: '', value: 'select', width: '5%' },
@@ -109,11 +116,23 @@ const scanOrphanSubtitles = async () => {
     if (data && data.success) {
       orphanSubtitles.value = data.data.orphan_subtitles || []
       totalFound.value = data.data.total_found || 0
+      scanPath.value = data.data.scan_path || ''
     }
   } catch (error) {
     console.error('扫描孤儿字幕失败:', error)
   } finally {
     scanning.value = false
+  }
+}
+
+const fetchScanPath = async () => {
+  try {
+    const data = await props.api.get('plugin/DanmuTV/get_config')
+    if (data && data.success) {
+      scanPath.value = data.data.path || ''
+    }
+  } catch (error) {
+    console.error('获取配置失败:', error)
   }
 }
 
@@ -169,7 +188,7 @@ const formatSize = (bytes) => {
 }
 
 onMounted(() => {
-  scanOrphanSubtitles()
+  fetchScanPath()
 })
 </script>
 

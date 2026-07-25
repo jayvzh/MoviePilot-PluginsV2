@@ -1239,13 +1239,19 @@ class DanmuTV(_PluginBase):
 
     def scrape_directory(self, directory_path: str = None) -> schemas.Response:
         """
-        刮削指定目录下所有媒体文件
+        刮削指定目录下所有媒体文件（不递归子目录）
         """
         if not directory_path:
             return schemas.Response(success=False, message="缺少目录路径")
         if not os.path.isdir(directory_path):
             return schemas.Response(success=False, message="目录不存在")
-        files = self._collect_media_files(directory_path)
+        
+        files = []
+        for file in os.listdir(directory_path):
+            file_path = os.path.join(directory_path, file)
+            if os.path.isfile(file_path) and self._is_supported_file(file_path):
+                files.append(file_path)
+        
         if not files:
             return schemas.Response(success=False, message="目录下没有支持的媒体文件")
         if not self._start_scrape_batch(files, f"目录 {directory_path}"):
@@ -2074,11 +2080,12 @@ class DanmuTV(_PluginBase):
             stats["total_files"] += scrape_status.get("total_files", 0)
             stats["success_count"] += scrape_status.get("scraped_files", 0)
         
+        for record in self._global_history:
+            stats["failed_count"] += record.get("failed", 0)
+        
         with self._retry_lock:
             stats["retry_tasks_count"] = len(self._retry_tasks)
             retry_tasks = dict(self._retry_tasks)
-        
-        stats["failed_count"] = stats["total_files"] - stats["success_count"]
         
         next_retry_time = None
         for task_info in retry_tasks.values():
@@ -2193,7 +2200,6 @@ class DanmuTV(_PluginBase):
         orphan_subtitles = []
         
         media_extensions = {'.mp4', '.mkv', '.strm'}
-        subtitle_extensions = {'.ass', '.srt'}
         
         for scan_path in paths:
             if not os.path.exists(scan_path):
@@ -2202,14 +2208,14 @@ class DanmuTV(_PluginBase):
             for root, _, files in os.walk(scan_path):
                 for file in files:
                     _, ext = os.path.splitext(file)
-                    if ext.lower() not in subtitle_extensions:
+                    if ext.lower() != '.ass':
                         continue
                     
-                    if '.withDanmu.ass' in file:
+                    if 'danmu' not in file.lower():
                         continue
                     
                     full_path = os.path.join(root, file)
-                    base_name = os.path.splitext(full_path)[0]
+                    base_name = os.path.splitext(full_path)[0].replace('.danmu.chs', '').replace('.danmu', '')
                     
                     has_media = False
                     for media_ext in media_extensions:
