@@ -1,12 +1,12 @@
 <template>
   <v-container fluid class="pa-4">
-    <v-card>
-      <v-card-title class="text-h6 font-weight-bold">
-        <v-icon icon="mdi-history" color="primary" class="mr-2"></v-icon>
+    <v-card flat class="rounded border status-card">
+      <v-card-title class="text-caption d-flex align-center px-3 py-2 bg-primary-lighten-5">
+        <v-icon icon="mdi-history" color="primary" size="small" class="mr-2"></v-icon>
         历史记录
         <span class="text-sm text-grey ml-2">({{ total }} 条)</span>
       </v-card-title>
-      <v-card-text>
+      <v-card-text class="px-3 py-2">
         <v-data-table
           :headers="headers"
           :items="history"
@@ -68,6 +68,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 
+const props = defineProps({
+  api: { 
+    type: [Object, Function],
+    required: true,
+  }
+})
+
 const history = ref([])
 const total = ref(0)
 const loading = ref(false)
@@ -90,11 +97,8 @@ const detailHeaders = [
 const fetchHistory = async () => {
   loading.value = true
   try {
-    const response = await fetch('/plugin/danmutv/history', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
-    const data = await response.json()
-    if (data.success) {
+    const data = await props.api.get('plugin/DanmuTV/history')
+    if (data && data.success) {
       history.value = data.data.history || []
       total.value = data.data.total || 0
     }
@@ -139,3 +143,25 @@ onMounted(() => {
   fetchHistory()
 })
 </script>
+
+<style scoped>
+.bg-primary-lighten-5 {
+  background-color: rgba(var(--v-theme-primary), 0.07);
+}
+
+.border {
+  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.status-card {
+  background-image: linear-gradient(to right, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.95)), 
+                    repeating-linear-gradient(45deg, rgba(var(--v-theme-primary), 0.03), rgba(var(--v-theme-primary), 0.03) 10px, transparent 10px, transparent 20px);
+  background-attachment: fixed;
+  box-shadow: 0 1px 2px rgba(var(--v-border-color), 0.05) !important;
+  transition: all 0.3s ease;
+}
+
+.status-card:hover {
+  box-shadow: 0 3px 6px rgba(var(--v-border-color), 0.1) !important;
+}
+</style>

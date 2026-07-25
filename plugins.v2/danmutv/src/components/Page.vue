@@ -46,13 +46,13 @@
           />
         </v-tab-item>
         <v-tab-item value="retry">
-          <RetryTasks />
+          <RetryTasks :api="props.api" />
         </v-tab-item>
         <v-tab-item value="history">
-          <History />
+          <History :api="props.api" />
         </v-tab-item>
         <v-tab-item value="cleanup">
-          <Cleanup />
+          <Cleanup :api="props.api" />
         </v-tab-item>
       </v-tabs-items>
 

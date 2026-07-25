@@ -2,49 +2,52 @@
   <v-container fluid class="pa-4">
     <v-row class="mb-4">
       <v-col cols="12">
-        <v-card class="status-card bg-primary-lighten-5">
-          <v-card-title class="text-h6 font-weight-bold">
-            <v-icon icon="mdi-information" color="primary" class="mr-2"></v-icon>
+        <v-card class="status-card">
+          <v-card-title class="text-caption d-flex align-center px-3 py-2 bg-primary-lighten-5">
+            <v-icon icon="mdi-information" color="primary" size="small" class="mr-2"></v-icon>
             插件状态
           </v-card-title>
-          <v-card-text>
+          <v-card-text class="px-3 py-2">
             <v-row>
               <v-col cols="12" sm="6" md="3">
-                <v-card class="text-center">
-                  <v-card-text class="py-4">
-                    <v-icon :icon="enabled ? 'mdi-check-circle' : 'mdi-close-circle'" 
-                             :color="enabled ? 'success' : 'error'" 
-                             size="48"></v-icon>
-                  </v-card-text>
-                  <v-card-title class="text-subtitle-1">{{ enabled ? '已启用' : '未启用' }}</v-card-title>
-                </v-card>
+                <div class="status-item d-flex align-center py-2">
+                  <v-icon :icon="enabled ? 'mdi-check-circle' : 'mdi-close-circle'" 
+                           :color="enabled ? 'success' : 'error'" 
+                           size="small" class="mr-3"></v-icon>
+                  <div class="status-content flex-grow-1">
+                    <div class="text-subtitle-2">插件状态</div>
+                    <div class="text-caption text-grey">{{ enabled ? '已启用' : '未启用' }}</div>
+                  </div>
+                </div>
               </v-col>
               <v-col cols="12" sm="6" md="3">
-                <v-card class="text-center">
-                  <v-card-text class="py-4">
-                    <v-icon :icon="apiConnected ? 'mdi-web' : 'mdi-web-off'" 
-                             :color="apiConnected ? 'success' : 'error'" 
-                             size="48"></v-icon>
-                  </v-card-text>
-                  <v-card-title class="text-subtitle-1">{{ apiConnected ? 'API正常' : 'API异常' }}</v-card-title>
-                  <v-card-subtitle class="text-xs text-grey">{{ apiMessage }}</v-card-subtitle>
-                </v-card>
+                <div class="status-item d-flex align-center py-2">
+                  <v-icon :icon="apiConnected ? 'mdi-web' : 'mdi-web-off'" 
+                           :color="apiConnected ? 'success' : 'error'" 
+                           size="small" class="mr-3"></v-icon>
+                  <div class="status-content flex-grow-1">
+                    <div class="text-subtitle-2">API状态</div>
+                    <div class="text-caption text-grey">{{ apiConnected ? '正常' : '异常' }}</div>
+                  </div>
+                </div>
               </v-col>
               <v-col cols="12" sm="6" md="3">
-                <v-card class="text-center">
-                  <v-card-text class="py-4">
-                    <span class="text-4xl font-bold text-primary">{{ stats.total_files }}</span>
-                  </v-card-text>
-                  <v-card-title class="text-subtitle-1">总文件数</v-card-title>
-                </v-card>
+                <div class="status-item d-flex align-center py-2">
+                  <v-icon icon="mdi-file-video" size="small" color="primary" class="mr-3"></v-icon>
+                  <div class="status-content flex-grow-1">
+                    <div class="text-subtitle-2">总文件数</div>
+                    <div class="text-caption text-grey">{{ stats.total_files }}</div>
+                  </div>
+                </div>
               </v-col>
               <v-col cols="12" sm="6" md="3">
-                <v-card class="text-center">
-                  <v-card-text class="py-4">
-                    <span class="text-4xl font-bold text-success">{{ stats.retry_tasks_count }}</span>
-                  </v-card-text>
-                  <v-card-title class="text-subtitle-1">重试任务</v-card-title>
-                </v-card>
+                <div class="status-item d-flex align-center py-2">
+                  <v-icon icon="mdi-alert-circle-outline" size="small" color="warning" class="mr-3"></v-icon>
+                  <div class="status-content flex-grow-1">
+                    <div class="text-subtitle-2">重试任务</div>
+                    <div class="text-caption text-grey">{{ stats.retry_tasks_count }}</div>
+                  </div>
+                </div>
               </v-col>
             </v-row>
           </v-card-text>
@@ -54,12 +57,12 @@
 
     <v-row class="mb-4">
       <v-col cols="12">
-        <v-card>
-          <v-card-title class="text-h6 font-weight-bold">
-            <v-icon icon="mdi-chart-bar" color="primary" class="mr-2"></v-icon>
+        <v-card flat class="rounded border">
+          <v-card-title class="text-caption d-flex align-center px-3 py-2 bg-primary-lighten-5">
+            <v-icon icon="mdi-chart-bar" color="primary" size="small" class="mr-2"></v-icon>
             统计信息
           </v-card-title>
-          <v-card-text>
+          <v-card-text class="px-3 py-2">
             <v-row>
               <v-col cols="12" sm="4">
                 <div class="flex items-center justify-between">
@@ -93,12 +96,12 @@
 
     <v-row class="mb-4">
       <v-col cols="12" md="6">
-        <v-card>
-          <v-card-title class="text-h6 font-weight-bold">
-            <v-icon icon="mdi-clock-outline" color="primary" class="mr-2"></v-icon>
+        <v-card flat class="rounded border">
+          <v-card-title class="text-caption d-flex align-center px-3 py-2 bg-primary-lighten-5">
+            <v-icon icon="mdi-clock-outline" color="primary" size="small" class="mr-2"></v-icon>
             计划任务
           </v-card-title>
-          <v-card-text>
+          <v-card-text class="px-3 py-2">
             <v-row>
               <v-col cols="12">
                 <div class="flex items-center justify-between">
@@ -118,12 +121,12 @@
         </v-card>
       </v-col>
       <v-col cols="12" md="6">
-        <v-card>
-          <v-card-title class="text-h6 font-weight-bold">
-            <v-icon icon="mdi-history" color="primary" class="mr-2"></v-icon>
+        <v-card flat class="rounded border">
+          <v-card-title class="text-caption d-flex align-center px-3 py-2 bg-primary-lighten-5">
+            <v-icon icon="mdi-history" color="primary" size="small" class="mr-2"></v-icon>
             最近运行
           </v-card-title>
-          <v-card-text>
+          <v-card-text class="px-3 py-2">
             <v-row v-if="lastRun">
               <v-col cols="12">
                 <div class="flex items-center justify-between">
@@ -161,11 +164,11 @@
     <v-row v-if="scrapingStatus.running">
       <v-col cols="12">
         <v-card class="bg-primary-lighten-5">
-          <v-card-title class="text-h6 font-weight-bold">
-            <v-icon icon="mdi-loader" color="primary" class="mr-2 animate-spin"></v-icon>
+          <v-card-title class="text-caption d-flex align-center px-3 py-2">
+            <v-icon icon="mdi-loader" color="primary" size="small" class="mr-2 animate-spin"></v-icon>
             正在刮削中
           </v-card-title>
-          <v-card-text>
+          <v-card-text class="px-3 py-2">
             <v-progress-linear :value="scrapingStatus.total > 0 ? (scrapingStatus.processed / scrapingStatus.total * 100) : 0" 
                                color="primary" height="8"></v-progress-linear>
             <div class="flex justify-between mt-2">
@@ -186,6 +189,13 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 
+const props = defineProps({
+  api: { 
+    type: [Object, Function],
+    required: true,
+  }
+})
+
 const enabled = ref(false)
 const apiConnected = ref(false)
 const apiMessage = ref('')
@@ -198,11 +208,8 @@ let refreshInterval = null
 
 const fetchStatus = async () => {
   try {
-    const response = await fetch('/plugin/danmutv/full_status', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
-    const data = await response.json()
-    if (data.success) {
+    const data = await props.api.get('plugin/DanmuTV/full_status');
+    if (data && data.success) {
       const result = data.data
       enabled.value = result.enabled
       apiConnected.value = result.api_connected
@@ -227,9 +234,7 @@ const fetchStatus = async () => {
 
 const triggerRetry = async () => {
   try {
-    await fetch('/plugin/danmutv/process_retry_tasks', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
+    await props.api.get('plugin/DanmuTV/process_retry_tasks')
     await fetchStatus()
   } catch (error) {
     console.error('触发重试失败:', error)
@@ -264,3 +269,42 @@ onUnmounted(() => {
   }
 })
 </script>
+
+<style scoped>
+.bg-primary-lighten-5 {
+  background-color: rgba(var(--v-theme-primary), 0.07);
+}
+
+.border {
+  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.status-card {
+  background-image: linear-gradient(to right, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.95)), 
+                    repeating-linear-gradient(45deg, rgba(var(--v-theme-primary), 0.03), rgba(var(--v-theme-primary), 0.03) 10px, transparent 10px, transparent 20px);
+  background-attachment: fixed;
+  box-shadow: 0 1px 2px rgba(var(--v-border-color), 0.05) !important;
+  transition: all 0.3s ease;
+}
+
+.status-card:hover {
+  box-shadow: 0 3px 6px rgba(var(--v-border-color), 0.1) !important;
+}
+
+.status-item {
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  padding: 0.5rem;
+  margin-bottom: 4px;
+}
+
+.status-item:hover {
+  background-color: rgba(var(--v-theme-primary), 0.03);
+}
+
+.text-subtitle-2 {
+  font-size: 14px !important;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+</style>

@@ -1,11 +1,11 @@
 <template>
   <v-container fluid class="pa-4">
-    <v-card>
-      <v-card-title class="text-h6 font-weight-bold">
-        <v-icon icon="mdi-delete-sweep" color="error" class="mr-2"></v-icon>
+    <v-card flat class="rounded border status-card">
+      <v-card-title class="text-caption d-flex align-center px-3 py-2 bg-primary-lighten-5">
+        <v-icon icon="mdi-delete-sweep" color="error" size="small" class="mr-2"></v-icon>
         孤儿字幕清理
       </v-card-title>
-      <v-card-text>
+      <v-card-text class="px-3 py-2">
         <v-row class="mb-4">
           <v-col cols="12" sm="6">
             <v-btn color="primary" size="small" class="mr-2" @click="scanOrphanSubtitles" :loading="scanning">
@@ -78,6 +78,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 
+const props = defineProps({
+  api: { 
+    type: [Object, Function],
+    required: true,
+  }
+})
+
 const orphanSubtitles = ref([])
 const totalFound = ref(0)
 const cleanedCount = ref(0)
@@ -98,11 +105,8 @@ const scanOrphanSubtitles = async () => {
   scanning.value = true
   selectedPaths.value = []
   try {
-    const response = await fetch('/plugin/danmutv/scan_orphan_subtitles', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
-    const data = await response.json()
-    if (data.success) {
+    const data = await props.api.get('plugin/DanmuTV/scan_orphan_subtitles')
+    if (data && data.success) {
       orphanSubtitles.value = data.data.orphan_subtitles || []
       totalFound.value = data.data.total_found || 0
     }
@@ -115,16 +119,8 @@ const scanOrphanSubtitles = async () => {
 
 const cleanSingle = async (filePath) => {
   try {
-    const response = await fetch('/plugin/danmutv/clean_orphan_subtitles', {
-      headers: { 
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
-      },
-      method: 'POST',
-      body: JSON.stringify([filePath])
-    })
-    const data = await response.json()
-    if (data.success) {
+    const data = await props.api.post('plugin/DanmuTV/clean_orphan_subtitles', [filePath])
+    if (data && data.success) {
       cleanedCount.value += data.data.cleaned_count || 0
       orphanSubtitles.value = orphanSubtitles.value.filter(item => item.path !== filePath)
       totalFound.value = orphanSubtitles.value.length
@@ -138,16 +134,8 @@ const cleanSelected = async () => {
   if (!selectedPaths.value.length) return
   cleaning.value = true
   try {
-    const response = await fetch('/plugin/danmutv/clean_orphan_subtitles', {
-      headers: { 
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
-      },
-      method: 'POST',
-      body: JSON.stringify(selectedPaths.value)
-    })
-    const data = await response.json()
-    if (data.success) {
+    const data = await props.api.post('plugin/DanmuTV/clean_orphan_subtitles', selectedPaths.value)
+    if (data && data.success) {
       cleanedCount.value += data.data.cleaned_count || 0
       orphanSubtitles.value = orphanSubtitles.value.filter(item => !selectedPaths.value.includes(item.path))
       totalFound.value = orphanSubtitles.value.length
@@ -184,3 +172,25 @@ onMounted(() => {
   scanOrphanSubtitles()
 })
 </script>
+
+<style scoped>
+.bg-primary-lighten-5 {
+  background-color: rgba(var(--v-theme-primary), 0.07);
+}
+
+.border {
+  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.status-card {
+  background-image: linear-gradient(to right, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.95)), 
+                    repeating-linear-gradient(45deg, rgba(var(--v-theme-primary), 0.03), rgba(var(--v-theme-primary), 0.03) 10px, transparent 10px, transparent 20px);
+  background-attachment: fixed;
+  box-shadow: 0 1px 2px rgba(var(--v-border-color), 0.05) !important;
+  transition: all 0.3s ease;
+}
+
+.status-card:hover {
+  box-shadow: 0 3px 6px rgba(var(--v-border-color), 0.1) !important;
+}
+</style>

@@ -1,12 +1,12 @@
 <template>
   <v-container fluid class="pa-4">
-    <v-card>
-      <v-card-title class="text-h6 font-weight-bold">
-        <v-icon icon="mdi-alert-circle-outline" color="warning" class="mr-2"></v-icon>
+    <v-card flat class="rounded border status-card">
+      <v-card-title class="text-caption d-flex align-center px-3 py-2 bg-primary-lighten-5">
+        <v-icon icon="mdi-alert-circle-outline" color="warning" size="small" class="mr-2"></v-icon>
         重试任务列表
         <span class="text-sm text-grey ml-2">({{ total }} 个)</span>
       </v-card-title>
-      <v-card-text>
+      <v-card-text class="px-3 py-2">
         <v-row class="mb-4">
           <v-col cols="12" sm="6" md="4">
             <v-btn color="primary" size="small" class="mr-2" @click="processAll">
@@ -62,7 +62,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
+
+const props = defineProps({
+  api: { 
+    type: [Object, Function],
+    required: true,
+  }
+})
 
 const tasks = ref([])
 const total = ref(0)
@@ -83,11 +90,8 @@ const headers = [
 const fetchTasks = async () => {
   loading.value = true
   try {
-    const response = await fetch('/plugin/danmutv/retry_tasks', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
-    const data = await response.json()
-    if (data.success) {
+    const data = await props.api.get('plugin/DanmuTV/retry_tasks')
+    if (data && data.success) {
       tasks.value = Object.values(data.data.tasks || {})
       total.value = data.data.total || 0
       minDanmuCount.value = data.data.min_danmu_count || 100
@@ -102,9 +106,7 @@ const fetchTasks = async () => {
 
 const processAll = async () => {
   try {
-    await fetch('/plugin/danmutv/process_retry_tasks', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
+    await props.api.get('plugin/DanmuTV/process_retry_tasks')
     await fetchTasks()
   } catch (error) {
     console.error('处理重试任务失败:', error)
@@ -113,9 +115,7 @@ const processAll = async () => {
 
 const clearAll = async () => {
   try {
-    await fetch('/plugin/danmutv/clear_retry_tasks', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    })
+    await props.api.get('plugin/DanmuTV/clear_retry_tasks')
     await fetchTasks()
   } catch (error) {
     console.error('清空重试任务失败:', error)
@@ -124,10 +124,8 @@ const clearAll = async () => {
 
 const retrySingle = async (filePath) => {
   try {
-    const response = await fetch('/plugin/danmutv/generate_danmu', {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-      method: 'GET',
-      body: new URLSearchParams({ file_path: filePath })
+    await props.api.get('plugin/DanmuTV/generate_danmu', {
+      params: { file_path: filePath }
     })
     await fetchTasks()
   } catch (error) {
@@ -137,8 +135,8 @@ const retrySingle = async (filePath) => {
 
 const removeSingle = async (filePath) => {
   try {
-    await fetch(`/plugin/danmutv/remove_retry_task?file_path=${encodeURIComponent(filePath)}`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    await props.api.get('plugin/DanmuTV/remove_retry_task', {
+      params: { file_path: filePath }
     })
     await fetchTasks()
   } catch (error) {
@@ -172,3 +170,25 @@ onMounted(() => {
   fetchTasks()
 })
 </script>
+
+<style scoped>
+.bg-primary-lighten-5 {
+  background-color: rgba(var(--v-theme-primary), 0.07);
+}
+
+.border {
+  border: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.status-card {
+  background-image: linear-gradient(to right, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.95)), 
+                    repeating-linear-gradient(45deg, rgba(var(--v-theme-primary), 0.03), rgba(var(--v-theme-primary), 0.03) 10px, transparent 10px, transparent 20px);
+  background-attachment: fixed;
+  box-shadow: 0 1px 2px rgba(var(--v-border-color), 0.05) !important;
+  transition: all 0.3s ease;
+}
+
+.status-card:hover {
+  box-shadow: 0 3px 6px rgba(var(--v-border-color), 0.1) !important;
+}
+</style>
