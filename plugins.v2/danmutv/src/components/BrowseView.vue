@@ -137,7 +137,7 @@
                     color="primary"
                     class="mr-1"
                     :disabled="scrapingStatus.running"
-                    @click.stop="scrapeDirectory(item.path)"
+                    @click.stop="scrapeDirectory(item.path, true)"
                   ></v-btn>
                   <v-btn
                     icon="mdi-magnify"
@@ -764,14 +764,16 @@ function formatDate(dateStr) {
   return date.toISOString().split('T')[0];
 }
 
-async function scrapeDirectory(path) {
+async function scrapeDirectory(path, recursive = false) {
   if (!path) return;
   error.value = null;
   batchStarting.value = true;
   try {
-    const res = await props.api.get('plugin/DanmuTV/scrape_directory', {
-      params: { directory_path: path }
-    });
+    const params = { directory_path: path };
+    if (recursive) {
+      params.recursive = true;
+    }
+    const res = await props.api.get('plugin/DanmuTV/scrape_directory', { params });
     if (res && res.success) {
       successMessage.value = res.message || '已开始批量刮削';
       await getStatus();
@@ -788,7 +790,7 @@ async function scrapeDirectory(path) {
 }
 
 function scrapeCurrentDirectory() {
-  scrapeDirectory(currentPath.value);
+  scrapeDirectory(currentPath.value, false);
 }
 
 async function cleanCurrentDirectorySubtitles() {

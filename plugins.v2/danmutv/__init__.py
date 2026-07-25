@@ -1111,6 +1111,65 @@ class DanmuTV(_PluginBase):
                     collected.append(file_path)
         return collected
 
+    def _has_valid_danmu(self, file_path: str) -> bool:
+        """
+        检查媒体文件是否已有有效的弹幕字幕（.danmu.chs.ass 存在且弹幕数量达标）
+        """
+        ass_file = f"{os.path.splitext(file_path)[0]}.danmu.chs.ass"
+        if not os.path.exists(ass_file):
+            return False
+        danmu_count = self._count_danmu_lines_cached(ass_file)
+        return danmu_count >= self._min_danmu_count
+
+    def _filter_unscraped_files(self, files: List[str]) -> List[str]:
+        """
+        过滤掉已有有效弹幕字幕的文件，只保留需要刮削的文件
+        """
+        unscraped = []
+        skipped = 0
+        for file_path in files:
+            if self._has_valid_danmu(file_path):
+                skipped += 1
+            else:
+                unscraped.append(file_path)
+        if skipped > 0:
+            logger.info(f"跳过 {skipped} 个已有有效弹幕的文件")
+        return unscraped
+
+    def _collect_files_shallowest(self, directory_path: str, max_depth: int = 6) -> List[str]:
+        """
+        收集目录下媒体文件（每条分支取最浅层含媒体文件的目录，不继续深入）
+        :param directory_path: 起始目录
+        :param max_depth: 最大递归深度
+        :return: 媒体文件列表
+        """
+        result = []
+
+        def _scan_dir(dir_path: str, depth: int):
+            if depth > max_depth:
+                return
+            local_media = []
+            subdirs = []
+            try:
+                for entry in os.scandir(dir_path):
+                    if entry.is_file() and self._is_supported_file(entry.path):
+                        local_media.append(entry.path)
+                    elif entry.is_dir() and not entry.name.startswith('.'):
+                        subdirs.append(entry.path)
+            except OSError:
+                return
+
+            if local_media:
+                # 当前目录有媒体文件，收集并不再深入该分支
+                result.extend(local_media)
+            else:
+                # 当前目录无媒体文件，递归子目录
+                for subdir in subdirs:
+                    _scan_dir(subdir, depth + 1)
+
+        _scan_dir(directory_path, 0)
+        return result
+
     def _start_scrape_batch(self, files: List[str], label: str) -> bool:
         """
         启动后台批量刮削，已有任务运行时返回False
@@ -1237,29 +1296,47 @@ class DanmuTV(_PluginBase):
             f"失败 {summary['failed']}，共 {summary['total']}"
         )
 
-    def scrape_directory(self, directory_path: str = None) -> schemas.Response:
+    def scrape_directory(self, directory_path: str = None, recursive: bool = False) -> schemas.Response:
         """
-        刮削指定目录下所有媒体文件（不递归子目录）
+        刮削指定目录下所有媒体文件
+        :param directory_path: 目录路径
+        :param recursive: 是否递归子目录（每条分支取最浅层含媒体文件的目录，最多6层）
         """
         if not directory_path:
             return schemas.Response(success=False, message="缺少目录路径")
         if not os.path.isdir(directory_path):
             return schemas.Response(success=False, message="目录不存在")
         
-        files = []
-        for file in os.listdir(directory_path):
-            file_path = os.path.join(directory_path, file)
-            if os.path.isfile(file_path) and self._is_supported_file(file_path):
-                files.append(file_path)
+        if recursive:
+            files = self._collect_files_shallowest(directory_path, max_depth=6)
+        else:
+            files = []
+            for file in os.listdir(directory_path):
+                file_path = os.path.join(directory_path, file)
+                if os.path.isfile(file_path) and self._is_supported_file(file_path):
+                    files.append(file_path)
         
         if not files:
             return schemas.Response(success=False, message="目录下没有支持的媒体文件")
-        if not self._start_scrape_batch(files, f"目录 {directory_path}"):
+        
+        # 过滤已有有效弹幕的文件
+        total_before = len(files)
+        files = self._filter_unscraped_files(files)
+        if not files:
+            return schemas.Response(success=False, message=f"所有 {total_before} 个文件已有有效弹幕，无需刮削")
+        
+        label = f"目录 {directory_path}" + ("（递归）" if recursive else "")
+        if not self._start_scrape_batch(files, label):
             return schemas.Response(success=False, message="已有刮削任务进行中，请稍后再试")
+        
+        skipped = total_before - len(files)
+        msg = f"已开始刮削，共 {len(files)} 个文件"
+        if skipped > 0:
+            msg += f"（跳过 {skipped} 个已有弹幕）"
         return schemas.Response(
             success=True,
-            message=f"已开始刮削，共 {len(files)} 个文件",
-            data={"total": len(files)}
+            message=msg,
+            data={"total": len(files), "skipped": skipped}
         )
 
     def abort_scrape(self) -> schemas.Response:
@@ -2134,12 +2211,21 @@ class DanmuTV(_PluginBase):
         
         api_status = self.check_api_status()
         
+        # 检查媒体库路径可访问性
+        media_paths = [p.strip() for p in self._path.split('\n') if p.strip()]
+        if media_paths:
+            media_library_accessible = all(os.path.exists(p) for p in media_paths)
+        else:
+            media_library_accessible = False
+        
         return schemas.Response(
             success=True,
             data={
                 "enabled": self._enabled,
                 "api_connected": api_status.success,
                 "api_message": api_status.message,
+                "media_library_accessible": media_library_accessible,
+                "media_library_count": len(media_paths),
                 "stats": stats,
                 "next_retry_time": next_retry_time.strftime("%Y-%m-%d %H:%M:%S") if next_retry_time else None,
                 "last_run": last_run,
