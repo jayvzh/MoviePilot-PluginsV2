@@ -35,26 +35,13 @@
         </v-tab>
       </v-tabs>
 
-      <v-tabs-items v-model="activeTab" class="pt-2">
-        <v-tab-item value="dashboard">
-          <Dashboard :api="props.api" />
-        </v-tab-item>
-        <v-tab-item value="browse">
-          <BrowseView 
-            :api="props.api" 
-            @refresh="refreshDashboard"
-          />
-        </v-tab-item>
-        <v-tab-item value="retry">
-          <RetryTasks :api="props.api" />
-        </v-tab-item>
-        <v-tab-item value="history">
-          <History :api="props.api" />
-        </v-tab-item>
-        <v-tab-item value="cleanup">
-          <Cleanup :api="props.api" />
-        </v-tab-item>
-      </v-tabs-items>
+      <v-card-text class="p-0">
+        <Dashboard v-if="activeTab === 'dashboard'" :api="api" />
+        <BrowseView v-else-if="activeTab === 'browse'" :api="api" @refresh="refreshDashboard" />
+        <RetryTasks v-else-if="activeTab === 'retry'" :api="api" />
+        <History v-else-if="activeTab === 'history'" :api="api" />
+        <Cleanup v-else-if="activeTab === 'cleanup'" :api="api" />
+      </v-card-text>
 
       <v-divider></v-divider>
       
