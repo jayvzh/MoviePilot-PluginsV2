@@ -32,7 +32,7 @@ class DanmuTV(_PluginBase):
     # 主题色
     plugin_color = "#3B5E8E"
     # 插件版本
-    plugin_version = "1.5"
+    plugin_version = "1.6"
     # 插件作者
     plugin_author = "jayvzh"
     # 作者主页
@@ -1557,6 +1557,7 @@ class DanmuTV(_PluginBase):
                     child["scrape_status"] = {"total_files": 0, "scraped_files": 0}
                     child["last_scrape_time"] = None
                 
+                child["scrape_status"] = self._get_directory_recursive_stats(entry.path)
                 result["children"].append(child)
 
             # 添加媒体文件到结果
@@ -1587,6 +1588,8 @@ class DanmuTV(_PluginBase):
                     child["danmu_count"] = 0
                 result["children"].append(child)
 
+            result["scrape_status"] = self._get_directory_recursive_stats(path)
+
             logger.debug(f"目录 {path} 扫描完成，发现 {len(files)} 个媒体文件，{len(directories)} 个子目录")
             return result
         except Exception as e:
@@ -1594,6 +1597,38 @@ class DanmuTV(_PluginBase):
             # 出错时返回基本信息，不中断整个扫描
             result["error"] = str(e)
             return result
+
+    def _get_directory_recursive_stats(self, directory_path: str) -> Dict[str, int]:
+        """
+        获取目录向下四层（包含当前目录）的汇总统计数据
+        :param directory_path: 目录路径
+        :return: 汇总统计 {"total_files": int, "scraped_files": int}
+        """
+        total_files = 0
+        scraped_files = 0
+        max_depth = 4
+
+        try:
+            for root, dirs, files in os.walk(directory_path):
+                depth = root[len(directory_path):].count(os.sep)
+                if depth >= max_depth:
+                    dirs[:] = []
+                    continue
+
+                dirs[:] = [d for d in dirs if not d.startswith('.')]
+                
+                for file in files:
+                    if self._is_supported_file(os.path.join(root, file)):
+                        total_files += 1
+                        ass_file = f"{os.path.splitext(os.path.join(root, file))[0]}.danmu.chs.ass"
+                        if os.path.exists(ass_file):
+                            danmu_count = self._count_danmu_lines_cached(ass_file)
+                            if danmu_count >= self._min_danmu_count:
+                                scraped_files += 1
+        except Exception as e:
+            logger.warning(f"获取目录递归统计失败: {directory_path}, 错误: {e}")
+
+        return {"total_files": total_files, "scraped_files": scraped_files}
 
     def generate_danmu_single(self, file_path: str) -> schemas.Response:
         """
