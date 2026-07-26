@@ -1,21 +1,21 @@
 <template>
   <v-container fluid class="pa-4">
     <v-card flat class="rounded border status-card">
-      <v-card-title class="text-caption d-flex align-center px-3 py-2 bg-primary-lighten-5">
+      <v-card-title class="text-caption d-flex align-center px-3 py-2 bg-primary-lighten-5 flex-wrap">
         <v-icon icon="mdi-alert-circle-outline" color="warning" size="small" class="mr-2"></v-icon>
         重试任务列表
         <span class="text-sm text-grey ml-2">({{ total }} 个)</span>
         <v-spacer></v-spacer>
-        <v-chip v-if="minDanmuCount" size="small" variant="tonal" color="grey" class="mr-2">最小弹幕数: {{ minDanmuCount }}</v-chip>
-        <v-chip v-if="maxRetryTimes" size="small" variant="tonal" color="grey" class="mr-2">最大重试: {{ maxRetryTimes }}次</v-chip>
-        <v-btn color="primary" size="small" variant="tonal" class="mr-2" @click="processAll">
-          <v-icon icon="mdi-refresh" class="mr-1"></v-icon>
-          全部重试
-        </v-btn>
-        <v-btn color="error" size="small" variant="tonal" @click="clearAll">
-          <v-icon icon="mdi-delete" class="mr-1"></v-icon>
-          清空全部
-        </v-btn>
+        <div class="d-flex align-center" style="gap: 8px;">
+          <v-chip v-if="minDanmuCount" size="small" variant="tonal" color="grey">最小弹幕: {{ minDanmuCount }}</v-chip>
+          <v-chip v-if="maxRetryTimes" size="small" variant="tonal" color="grey">最大重试: {{ maxRetryTimes }}</v-chip>
+          <v-btn color="primary" size="small" variant="tonal" prepend-icon="mdi-refresh" @click="processAll">
+            全部重试
+          </v-btn>
+          <v-btn color="error" size="small" variant="tonal" prepend-icon="mdi-delete" @click="clearAll">
+            清空全部
+          </v-btn>
+        </div>
       </v-card-title>
       <v-card-text class="px-3 py-2">
         <v-data-table

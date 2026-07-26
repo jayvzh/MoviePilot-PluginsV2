@@ -35,30 +35,23 @@
           </v-col>
         </v-row>
         
-        <v-row class="mb-4">
-          <v-col cols="12" sm="6">
-            <v-btn color="primary" size="small" class="mr-2" @click="scanOrphanSubtitles" :loading="scanning" :disabled="!scanPaths.length">
-              <v-icon icon="mdi-search" class="mr-1"></v-icon>
-              扫描残留弹幕
-            </v-btn>
-            <v-btn color="info" size="small" class="mr-2" @click="selectAll" :disabled="!orphanSubtitles.length">
-              <v-icon icon="mdi-check-all" class="mr-1"></v-icon>
-              全选
-            </v-btn>
-            <v-btn color="error" size="small" class="mr-2" @click="cleanSelected" :disabled="!selectedPaths.length" :loading="cleaning">
-              <v-icon icon="mdi-delete" class="mr-1"></v-icon>
-              清理选中 ({{ selectedPaths.length }})
-            </v-btn>
-            <v-btn color="error" size="small" variant="outlined" @click="cleanAll" :disabled="!orphanSubtitles.length" :loading="cleaning">
-              <v-icon icon="mdi-delete-forever" class="mr-1"></v-icon>
-              全部删除
-            </v-btn>
-          </v-col>
-          <v-col cols="12" sm="6">
-            <v-chip v-if="totalFound > 0" label="找到: {{ totalFound }} 个" size="small" class="mr-2"></v-chip>
-            <v-chip v-if="cleanedCount > 0" label="已清理: {{ cleanedCount }} 个" size="small"></v-chip>
-          </v-col>
-        </v-row>
+        <div class="d-flex align-center flex-wrap mb-4" style="gap: 8px;">
+          <v-btn color="primary" size="small" variant="tonal" prepend-icon="mdi-search" @click="scanOrphanSubtitles" :loading="scanning" :disabled="!scanPaths.length">
+            扫描残留弹幕
+          </v-btn>
+          <v-btn color="info" size="small" variant="tonal" prepend-icon="mdi-check-all" @click="selectAll" :disabled="!orphanSubtitles.length">
+            全选
+          </v-btn>
+          <v-btn color="error" size="small" variant="tonal" prepend-icon="mdi-delete" @click="cleanSelected" :disabled="!selectedPaths.length" :loading="cleaning">
+            清理选中 ({{ selectedPaths.length }})
+          </v-btn>
+          <v-btn color="error" size="small" variant="tonal" prepend-icon="mdi-delete-forever" @click="cleanAll" :disabled="!orphanSubtitles.length" :loading="cleaning">
+            全部删除
+          </v-btn>
+          <v-spacer></v-spacer>
+          <v-chip v-if="totalFound > 0" size="small" variant="tonal" color="primary">找到: {{ totalFound }} 个</v-chip>
+          <v-chip v-if="cleanedCount > 0" size="small" variant="tonal" color="success">已清理: {{ cleanedCount }} 个</v-chip>
+        </div>
 
         <div v-if="scanning" class="text-center py-8">
           <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
