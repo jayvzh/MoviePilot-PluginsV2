@@ -9,15 +9,20 @@
         <div class="d-flex align-center" style="gap: 8px;">
           <v-chip v-if="minDanmuCount" size="small" variant="tonal" color="grey">最小弹幕: {{ minDanmuCount }}</v-chip>
           <v-chip v-if="maxRetryTimes" size="small" variant="tonal" color="grey">最大重试: {{ maxRetryTimes }}</v-chip>
-          <v-btn color="primary" size="small" variant="tonal" prepend-icon="mdi-refresh" @click="processAll">
+          <v-btn color="primary" size="small" variant="tonal" prepend-icon="mdi-refresh"
+            @click="processAll" :loading="actionLoading.processAll">
             全部重试
           </v-btn>
-          <v-btn color="error" size="small" variant="tonal" prepend-icon="mdi-delete" @click="clearAll">
+          <v-btn color="error" size="small" variant="tonal" prepend-icon="mdi-delete"
+            @click="clearAll" :loading="actionLoading.clearAll">
             清空全部
           </v-btn>
         </div>
       </v-card-title>
       <v-card-text class="px-3 py-2">
+        <v-alert v-if="message.text" :type="message.type" density="compact" class="mb-2 text-caption" variant="tonal" closable @click:close="message.text = ''">
+          {{ message.text }}
+        </v-alert>
         <v-data-table
           :headers="headers"
           :items="tasks"
@@ -41,10 +46,12 @@
             </v-tooltip>
           </template>
           <template v-slot:item.actions="{ item }">
-            <v-btn icon size="small" color="primary" @click="retrySingle(item.file_path)">
+            <v-btn icon size="small" color="primary" @click="retrySingle(item.file_path)"
+              :loading="actionLoading[`retry_${item.file_path}`]">
               <v-icon icon="mdi-refresh"></v-icon>
             </v-btn>
-            <v-btn icon size="small" color="error" @click="removeSingle(item.file_path)">
+            <v-btn icon size="small" color="error" @click="removeSingle(item.file_path)"
+              :loading="actionLoading[`remove_${item.file_path}`]">
               <v-icon icon="mdi-delete"></v-icon>
             </v-btn>
           </template>
@@ -60,10 +67,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 
 const props = defineProps({
-  api: { 
+  api: {
     type: [Object, Function],
     required: true,
   }
@@ -74,15 +81,23 @@ const total = ref(0)
 const minDanmuCount = ref(null)
 const maxRetryTimes = ref(null)
 const loading = ref(false)
+const actionLoading = reactive({})
+const message = reactive({ text: '', type: 'success' })
+
+function showMsg(text, type = 'success') {
+  message.text = text
+  message.type = type
+  setTimeout(() => { message.text = '' }, 4000)
+}
 
 const headers = [
-  { text: '文件路径', value: 'file_path', width: '30%' },
-  { text: '重试次数', value: 'retry_count', width: '10%' },
-  { text: '上次尝试', value: 'last_attempt', width: '15%' },
-  { text: '下次重试', value: 'next_retry_time', width: '15%' },
-  { text: '错误类型', value: 'error_type', width: '10%' },
-  { text: '弹幕数量', value: 'last_danmu_count', width: '10%' },
-  { text: '操作', value: 'actions', width: '10%' }
+  { title: '文件路径', value: 'file_path', width: '30%' },
+  { title: '重试次数', value: 'retry_count', width: '10%' },
+  { title: '上次尝试', value: 'last_attempt', width: '15%' },
+  { title: '下次重试', value: 'next_retry_time', width: '15%' },
+  { title: '错误类型', value: 'error_type', width: '10%' },
+  { title: '弹幕数量', value: 'last_danmu_count', width: '10%' },
+  { title: '操作', value: 'actions', width: '10%' }
 ]
 
 const fetchTasks = async () => {
@@ -103,47 +118,83 @@ const fetchTasks = async () => {
 }
 
 const processAll = async () => {
+  actionLoading.processAll = true
   try {
-    await props.api.get('plugin/DanmuTV/process_retry_tasks')
+    const res = await props.api.get('plugin/DanmuTV/process_retry_tasks')
+    if (res && res.success) {
+      showMsg('全部重试已执行完成')
+    } else {
+      showMsg(res?.message || '全部重试失败', 'error')
+    }
     await fetchTasks()
   } catch (error) {
     console.error('处理重试任务失败:', error)
+    showMsg('全部重试失败: ' + (error.message || ''), 'error')
+  } finally {
+    actionLoading.processAll = false
   }
 }
 
 const clearAll = async () => {
+  actionLoading.clearAll = true
   try {
-    await props.api.get('plugin/DanmuTV/clear_retry_tasks')
+    const res = await props.api.get('plugin/DanmuTV/clear_retry_tasks')
+    if (res && res.success) {
+      showMsg('已清空全部重试任务')
+    } else {
+      showMsg(res?.message || '清空失败', 'error')
+    }
     await fetchTasks()
   } catch (error) {
     console.error('清空重试任务失败:', error)
+    showMsg('清空失败: ' + (error.message || ''), 'error')
+  } finally {
+    actionLoading.clearAll = false
   }
 }
 
 const retrySingle = async (filePath) => {
+  actionLoading[`retry_${filePath}`] = true
   try {
-    await props.api.get('plugin/DanmuTV/generate_danmu', {
+    const res = await props.api.get('plugin/DanmuTV/generate_danmu', {
       params: { file_path: filePath }
     })
+    if (res && res.success) {
+      showMsg(`重试成功: ${getFileName(filePath)} (${res.data?.danmu_count || 0}条)`)
+    } else {
+      showMsg(res?.message || `重试失败: ${getFileName(filePath)}`, 'error')
+    }
     await fetchTasks()
   } catch (error) {
     console.error('重试单个任务失败:', error)
+    showMsg('重试失败: ' + (error.message || ''), 'error')
+  } finally {
+    actionLoading[`retry_${filePath}`] = false
   }
 }
 
 const removeSingle = async (filePath) => {
+  actionLoading[`remove_${filePath}`] = true
   try {
-    await props.api.get('plugin/DanmuTV/remove_retry_task', {
+    const res = await props.api.get('plugin/DanmuTV/remove_retry_task', {
       params: { file_path: filePath }
     })
+    if (res && res.success) {
+      showMsg(`已移除: ${getFileName(filePath)}`)
+    } else {
+      showMsg(res?.message || '移除失败', 'error')
+    }
     await fetchTasks()
   } catch (error) {
     console.error('移除重试任务失败:', error)
+    showMsg('移除失败: ' + (error.message || ''), 'error')
+  } finally {
+    actionLoading[`remove_${filePath}`] = false
   }
 }
 
 const getFileName = (filePath) => {
-  return filePath.split('/').pop() || filePath
+  return filePath.split('/').pop().split('\\').pop() || filePath
 }
 
 const getErrorLabel = (errorType) => {
@@ -183,7 +234,7 @@ onMounted(() => {
 }
 
 .status-card {
-  background-image: linear-gradient(to right, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.95)), 
+  background-image: linear-gradient(to right, rgba(var(--v-theme-surface), 0.98), rgba(var(--v-theme-surface), 0.95)),
                     repeating-linear-gradient(45deg, rgba(var(--v-theme-primary), 0.03), rgba(var(--v-theme-primary), 0.03) 10px, transparent 10px, transparent 20px);
   background-attachment: fixed;
   box-shadow: 0 1px 2px rgba(var(--v-border-color), var(--v-border-opacity)) !important;

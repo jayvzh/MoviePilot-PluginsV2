@@ -92,19 +92,19 @@ const total = ref(0)
 const loading = ref(false)
 
 const headers = [
-  { text: '时间', value: 'timestamp', width: '18%' },
-  { text: '类型', value: 'type', width: '10%' },
-  { text: '路径', value: 'path', width: '30%' },
-  { text: '处理数', value: 'processed', width: '10%' },
-  { text: '结果', value: 'result', width: '15%' },
-  { text: '耗时', value: 'duration', width: '10%' }
+  { title: '时间', value: 'timestamp', width: '18%' },
+  { title: '类型', value: 'type', width: '10%' },
+  { title: '路径', value: 'path', width: '30%' },
+  { title: '处理数', value: 'processed', width: '10%' },
+  { title: '结果', value: 'result', width: '15%' },
+  { title: '耗时', value: 'duration', width: '10%' }
 ]
 
 const detailHeaders = [
-  { text: '文件', value: 'file', width: '40%' },
-  { text: '结果', value: 'result', width: '10%' },
-  { text: '弹幕数', value: 'danmu_count', width: '10%' },
-  { text: '错误信息', value: 'error', width: '40%' }
+  { title: '文件', value: 'file', width: '40%' },
+  { title: '结果', value: 'result', width: '10%' },
+  { title: '弹幕数', value: 'danmu_count', width: '10%' },
+  { title: '错误信息', value: 'error', width: '40%' }
 ]
 
 const fetchHistory = async () => {

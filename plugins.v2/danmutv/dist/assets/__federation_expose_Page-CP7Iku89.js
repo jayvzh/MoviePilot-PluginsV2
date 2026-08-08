@@ -596,7 +596,7 @@ const _hoisted_27 = { key: 1 };
 const _hoisted_28 = { key: 2 };
 const _hoisted_29 = { class: "text-caption text-grey mt-2" };
 
-const {ref: ref$4,reactive,onMounted: onMounted$3,onUnmounted,computed: computed$1} = await importShared('vue');
+const {ref: ref$4,reactive: reactive$1,onMounted: onMounted$3,onUnmounted,computed: computed$1} = await importShared('vue');
 
 
 
@@ -621,11 +621,11 @@ const running = ref$4(false);
 const batchStarting = ref$4(false);
 let statusTimer = null;
 
-const status = reactive({
+const status = reactive$1({
   enabled: false
 });
 
-const scrapingStatus = reactive({
+const scrapingStatus = reactive$1({
   running: false,
   total: 0,
   processed: 0,
@@ -2020,18 +2020,18 @@ const _hoisted_2$2 = {
 };
 const _hoisted_3$2 = ["title"];
 const _hoisted_4$2 = {
-  key: 0,
+  key: 1,
   class: "text-center py-8 text-grey"
 };
 
-const {ref: ref$3,onMounted: onMounted$2} = await importShared('vue');
+const {ref: ref$3,reactive,onMounted: onMounted$2} = await importShared('vue');
 
 
 
 const _sfc_main$3 = {
   __name: 'RetryTasks',
   props: {
-  api: { 
+  api: {
     type: [Object, Function],
     required: true,
   }
@@ -2045,15 +2045,23 @@ const total = ref$3(0);
 const minDanmuCount = ref$3(null);
 const maxRetryTimes = ref$3(null);
 const loading = ref$3(false);
+const actionLoading = reactive({});
+const message = reactive({ text: '', type: 'success' });
+
+function showMsg(text, type = 'success') {
+  message.text = text;
+  message.type = type;
+  setTimeout(() => { message.text = ''; }, 4000);
+}
 
 const headers = [
-  { text: '文件路径', value: 'file_path', width: '30%' },
-  { text: '重试次数', value: 'retry_count', width: '10%' },
-  { text: '上次尝试', value: 'last_attempt', width: '15%' },
-  { text: '下次重试', value: 'next_retry_time', width: '15%' },
-  { text: '错误类型', value: 'error_type', width: '10%' },
-  { text: '弹幕数量', value: 'last_danmu_count', width: '10%' },
-  { text: '操作', value: 'actions', width: '10%' }
+  { title: '文件路径', value: 'file_path', width: '30%' },
+  { title: '重试次数', value: 'retry_count', width: '10%' },
+  { title: '上次尝试', value: 'last_attempt', width: '15%' },
+  { title: '下次重试', value: 'next_retry_time', width: '15%' },
+  { title: '错误类型', value: 'error_type', width: '10%' },
+  { title: '弹幕数量', value: 'last_danmu_count', width: '10%' },
+  { title: '操作', value: 'actions', width: '10%' }
 ];
 
 const fetchTasks = async () => {
@@ -2074,47 +2082,83 @@ const fetchTasks = async () => {
 };
 
 const processAll = async () => {
+  actionLoading.processAll = true;
   try {
-    await props.api.get('plugin/DanmuTV/process_retry_tasks');
+    const res = await props.api.get('plugin/DanmuTV/process_retry_tasks');
+    if (res && res.success) {
+      showMsg('全部重试已执行完成');
+    } else {
+      showMsg(res?.message || '全部重试失败', 'error');
+    }
     await fetchTasks();
   } catch (error) {
     console.error('处理重试任务失败:', error);
+    showMsg('全部重试失败: ' + (error.message || ''), 'error');
+  } finally {
+    actionLoading.processAll = false;
   }
 };
 
 const clearAll = async () => {
+  actionLoading.clearAll = true;
   try {
-    await props.api.get('plugin/DanmuTV/clear_retry_tasks');
+    const res = await props.api.get('plugin/DanmuTV/clear_retry_tasks');
+    if (res && res.success) {
+      showMsg('已清空全部重试任务');
+    } else {
+      showMsg(res?.message || '清空失败', 'error');
+    }
     await fetchTasks();
   } catch (error) {
     console.error('清空重试任务失败:', error);
+    showMsg('清空失败: ' + (error.message || ''), 'error');
+  } finally {
+    actionLoading.clearAll = false;
   }
 };
 
 const retrySingle = async (filePath) => {
+  actionLoading[`retry_${filePath}`] = true;
   try {
-    await props.api.get('plugin/DanmuTV/generate_danmu', {
+    const res = await props.api.get('plugin/DanmuTV/generate_danmu', {
       params: { file_path: filePath }
     });
+    if (res && res.success) {
+      showMsg(`重试成功: ${getFileName(filePath)} (${res.data?.danmu_count || 0}条)`);
+    } else {
+      showMsg(res?.message || `重试失败: ${getFileName(filePath)}`, 'error');
+    }
     await fetchTasks();
   } catch (error) {
     console.error('重试单个任务失败:', error);
+    showMsg('重试失败: ' + (error.message || ''), 'error');
+  } finally {
+    actionLoading[`retry_${filePath}`] = false;
   }
 };
 
 const removeSingle = async (filePath) => {
+  actionLoading[`remove_${filePath}`] = true;
   try {
-    await props.api.get('plugin/DanmuTV/remove_retry_task', {
+    const res = await props.api.get('plugin/DanmuTV/remove_retry_task', {
       params: { file_path: filePath }
     });
+    if (res && res.success) {
+      showMsg(`已移除: ${getFileName(filePath)}`);
+    } else {
+      showMsg(res?.message || '移除失败', 'error');
+    }
     await fetchTasks();
   } catch (error) {
     console.error('移除重试任务失败:', error);
+    showMsg('移除失败: ' + (error.message || ''), 'error');
+  } finally {
+    actionLoading[`remove_${filePath}`] = false;
   }
 };
 
 const getFileName = (filePath) => {
-  return filePath.split('/').pop() || filePath
+  return filePath.split('/').pop().split('\\').pop() || filePath
 };
 
 const getErrorLabel = (errorType) => {
@@ -2149,6 +2193,7 @@ return (_ctx, _cache) => {
   const _component_v_chip = _resolveComponent$3("v-chip");
   const _component_v_btn = _resolveComponent$3("v-btn");
   const _component_v_card_title = _resolveComponent$3("v-card-title");
+  const _component_v_alert = _resolveComponent$3("v-alert");
   const _component_v_tooltip = _resolveComponent$3("v-tooltip");
   const _component_v_data_table = _resolveComponent$3("v-data-table");
   const _component_v_card_text = _resolveComponent$3("v-card-text");
@@ -2173,7 +2218,7 @@ return (_ctx, _cache) => {
                 size: "small",
                 class: "mr-2"
               }),
-              _cache[2] || (_cache[2] = _createTextVNode$3(" 重试任务列表 ", -1)),
+              _cache[3] || (_cache[3] = _createTextVNode$3(" 重试任务列表 ", -1)),
               _createElementVNode$3("span", _hoisted_1$3, "(" + _toDisplayString$2(total.value) + " 个)", 1),
               _createVNode$3(_component_v_spacer),
               _createElementVNode$3("div", _hoisted_2$2, [
@@ -2208,31 +2253,49 @@ return (_ctx, _cache) => {
                   size: "small",
                   variant: "tonal",
                   "prepend-icon": "mdi-refresh",
-                  onClick: processAll
+                  onClick: processAll,
+                  loading: actionLoading.processAll
                 }, {
-                  default: _withCtx$3(() => [...(_cache[0] || (_cache[0] = [
+                  default: _withCtx$3(() => [...(_cache[1] || (_cache[1] = [
                     _createTextVNode$3(" 全部重试 ", -1)
                   ]))]),
                   _: 1
-                }),
+                }, 8, ["loading"]),
                 _createVNode$3(_component_v_btn, {
                   color: "error",
                   size: "small",
                   variant: "tonal",
                   "prepend-icon": "mdi-delete",
-                  onClick: clearAll
+                  onClick: clearAll,
+                  loading: actionLoading.clearAll
                 }, {
-                  default: _withCtx$3(() => [...(_cache[1] || (_cache[1] = [
+                  default: _withCtx$3(() => [...(_cache[2] || (_cache[2] = [
                     _createTextVNode$3(" 清空全部 ", -1)
                   ]))]),
                   _: 1
-                })
+                }, 8, ["loading"])
               ])
             ]),
             _: 1
           }),
           _createVNode$3(_component_v_card_text, { class: "px-3 py-2" }, {
             default: _withCtx$3(() => [
+              (message.text)
+                ? (_openBlock$3(), _createBlock$3(_component_v_alert, {
+                    key: 0,
+                    type: message.type,
+                    density: "compact",
+                    class: "mb-2 text-caption",
+                    variant: "tonal",
+                    closable: "",
+                    "onClick:close": _cache[0] || (_cache[0] = $event => (message.text = ''))
+                  }, {
+                    default: _withCtx$3(() => [
+                      _createTextVNode$3(_toDisplayString$2(message.text), 1)
+                    ]),
+                    _: 1
+                  }, 8, ["type"]))
+                : _createCommentVNode$3("", true),
               _createVNode$3(_component_v_data_table, {
                 headers: headers,
                 items: tasks.value,
@@ -2271,24 +2334,26 @@ return (_ctx, _cache) => {
                     icon: "",
                     size: "small",
                     color: "primary",
-                    onClick: $event => (retrySingle(item.file_path))
+                    onClick: $event => (retrySingle(item.file_path)),
+                    loading: actionLoading[`retry_${item.file_path}`]
                   }, {
                     default: _withCtx$3(() => [
                       _createVNode$3(_component_v_icon, { icon: "mdi-refresh" })
                     ]),
                     _: 1
-                  }, 8, ["onClick"]),
+                  }, 8, ["onClick", "loading"]),
                   _createVNode$3(_component_v_btn, {
                     icon: "",
                     size: "small",
                     color: "error",
-                    onClick: $event => (removeSingle(item.file_path))
+                    onClick: $event => (removeSingle(item.file_path)),
+                    loading: actionLoading[`remove_${item.file_path}`]
                   }, {
                     default: _withCtx$3(() => [
                       _createVNode$3(_component_v_icon, { icon: "mdi-delete" })
                     ]),
                     _: 1
-                  }, 8, ["onClick"])
+                  }, 8, ["onClick", "loading"])
                 ]),
                 _: 1
               }, 8, ["items", "loading"]),
@@ -2299,7 +2364,7 @@ return (_ctx, _cache) => {
                       size: "48",
                       color: "success"
                     }),
-                    _cache[3] || (_cache[3] = _createElementVNode$3("p", { class: "mt-2" }, "暂无重试任务", -1))
+                    _cache[4] || (_cache[4] = _createElementVNode$3("p", { class: "mt-2" }, "暂无重试任务", -1))
                   ]))
                 : _createCommentVNode$3("", true)
             ]),
@@ -2315,7 +2380,7 @@ return (_ctx, _cache) => {
 }
 
 };
-const RetryTasks = /*#__PURE__*/_export_sfc(_sfc_main$3, [['__scopeId',"data-v-1219a23d"]]);
+const RetryTasks = /*#__PURE__*/_export_sfc(_sfc_main$3, [['__scopeId',"data-v-485e1aa4"]]);
 
 const {resolveComponent:_resolveComponent$2,createVNode:_createVNode$2,toDisplayString:_toDisplayString$1,createElementVNode:_createElementVNode$2,createTextVNode:_createTextVNode$2,withCtx:_withCtx$2,openBlock:_openBlock$2,createElementBlock:_createElementBlock$2,createCommentVNode:_createCommentVNode$2,createBlock:_createBlock$2} = await importShared('vue');
 
@@ -2364,19 +2429,19 @@ const total = ref$2(0);
 const loading = ref$2(false);
 
 const headers = [
-  { text: '时间', value: 'timestamp', width: '18%' },
-  { text: '类型', value: 'type', width: '10%' },
-  { text: '路径', value: 'path', width: '30%' },
-  { text: '处理数', value: 'processed', width: '10%' },
-  { text: '结果', value: 'result', width: '15%' },
-  { text: '耗时', value: 'duration', width: '10%' }
+  { title: '时间', value: 'timestamp', width: '18%' },
+  { title: '类型', value: 'type', width: '10%' },
+  { title: '路径', value: 'path', width: '30%' },
+  { title: '处理数', value: 'processed', width: '10%' },
+  { title: '结果', value: 'result', width: '15%' },
+  { title: '耗时', value: 'duration', width: '10%' }
 ];
 
 const detailHeaders = [
-  { text: '文件', value: 'file', width: '40%' },
-  { text: '结果', value: 'result', width: '10%' },
-  { text: '弹幕数', value: 'danmu_count', width: '10%' },
-  { text: '错误信息', value: 'error', width: '40%' }
+  { title: '文件', value: 'file', width: '40%' },
+  { title: '结果', value: 'result', width: '10%' },
+  { title: '弹幕数', value: 'danmu_count', width: '10%' },
+  { title: '错误信息', value: 'error', width: '40%' }
 ];
 
 const fetchHistory = async () => {
@@ -2579,7 +2644,7 @@ return (_ctx, _cache) => {
 }
 
 };
-const History = /*#__PURE__*/_export_sfc(_sfc_main$2, [['__scopeId',"data-v-c934a01c"]]);
+const History = /*#__PURE__*/_export_sfc(_sfc_main$2, [['__scopeId',"data-v-6f32b23e"]]);
 
 const {resolveComponent:_resolveComponent$1,createVNode:_createVNode$1,createTextVNode:_createTextVNode$1,withCtx:_withCtx$1,openBlock:_openBlock$1,createElementBlock:_createElementBlock$1,createCommentVNode:_createCommentVNode$1,toDisplayString:_toDisplayString,createBlock:_createBlock$1,createElementVNode:_createElementVNode$1} = await importShared('vue');
 
