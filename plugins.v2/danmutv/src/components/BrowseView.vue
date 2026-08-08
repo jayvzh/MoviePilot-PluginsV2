@@ -4,6 +4,15 @@
       <v-card-title class="text-caption d-flex align-center px-3 py-2 bg-primary-lighten-5">
         <v-icon icon="mdi-folder" class="mr-2" color="primary" size="small" />
         <span>目录浏览</span>
+        <v-spacer></v-spacer>
+        <v-btn
+          color="primary"
+          size="small"
+          variant="text"
+          prepend-icon="mdi-refresh"
+          :loading="loading"
+          @click="refreshCurrentDir"
+        >刷新</v-btn>
       </v-card-title>
       <v-card-text class="px-3 py-2">
         <v-alert
@@ -473,6 +482,9 @@ const loading = ref(false);
 const notConfigured = ref(false);
 const pathHistory = ref([]);
 
+// 目录缓存: { path: data }
+const dirCache = new Map();
+
 const searchKeyword = ref('');
 const scanningStats = ref(false);
 
@@ -564,7 +576,16 @@ async function getStatus() {
   }
 }
 
-async function navigateToPath(path) {
+async function navigateToPath(path, force = false) {
+  // 有缓存且非强制刷新时直接使用缓存
+  const cacheKey = path || '';
+  if (!force && dirCache.has(cacheKey)) {
+    directoryContent.value = dirCache.get(cacheKey);
+    currentPath.value = path || '';
+    searchKeyword.value = '';
+    return;
+  }
+
   try {
     loading.value = true;
     error.value = null;
@@ -576,6 +597,7 @@ async function navigateToPath(path) {
       if (data && data.success) {
         directoryContent.value = data.data;
         currentPath.value = '';
+        dirCache.set('', data.data);
         if (data.data.type === 'root') {
           pathHistory.value = [];
         }
@@ -595,6 +617,7 @@ async function navigateToPath(path) {
       if (data && data.success) {
         directoryContent.value = data.data;
         currentPath.value = path;
+        dirCache.set(path, data.data);
         
         if (!pathHistory.value.includes(path)) {
           pathHistory.value.push(path);
@@ -609,6 +632,11 @@ async function navigateToPath(path) {
   } finally {
     loading.value = false;
   }
+}
+
+function refreshCurrentDir() {
+  dirCache.delete(currentPath.value || '');
+  navigateToPath(currentPath.value, true);
 }
 
 function goBack() {
@@ -760,7 +788,7 @@ async function confirmManualMatch() {
         manualContext.value.item.manual_scope = scope;
       }
       manualDialog.value = false;
-      await navigateToPath(currentPath.value);
+      await navigateToPath(currentPath.value, true);
       emit('refresh');
     } else {
       manualSearchError.value = res?.message || '保存匹配失败';
@@ -830,7 +858,7 @@ async function confirmCleanSubtitles() {
     
     if (res && res.success) {
       successMessage.value = `成功清理 ${res.data?.deleted?.length || 0} 个字幕文件`;
-      await navigateToPath(currentPath.value);
+      await navigateToPath(currentPath.value, true);
       emit('refresh');
     } else {
       error.value = res?.message || '清理字幕失败';
@@ -855,7 +883,7 @@ async function scanDirectoryStats() {
     
     if (res && res.success) {
       successMessage.value = `扫描完成：共 ${res.data.total_files} 个视频文件，已刮削 ${res.data.scraped_files} 个`;
-      await navigateToPath(currentPath.value);
+      await navigateToPath(currentPath.value, true);
       emit('refresh');
     } else {
       error.value = res?.message || '扫描统计失败';
@@ -889,7 +917,7 @@ function startStatusPolling() {
     if (!scrapingStatus.running) {
       stopStatusPolling();
       successMessage.value = `批量刮削完成：成功 ${scrapingStatus.success}，失败 ${scrapingStatus.failed}，共 ${scrapingStatus.total}`;
-      await navigateToPath(currentPath.value);
+      await navigateToPath(currentPath.value, true);
       emit('refresh');
     }
   }, 3000);
@@ -911,12 +939,12 @@ async function generateDanmu(item) {
     });
     if (result && result.success) {
       successMessage.value = `弹幕生成成功（${result.data?.danmu_count || 0}条）`;
-      await navigateToPath(currentPath.value);
+      await navigateToPath(currentPath.value, true);
       emit('refresh');
     } else {
       error.value = result?.message || '弹幕生成失败';
       // 刷新目录以更新弹幕状态，同时通知历史记录更新
-      await navigateToPath(currentPath.value);
+      await navigateToPath(currentPath.value, true);
       emit('refresh');
     }
   } catch (err) {
@@ -957,7 +985,7 @@ async function clearManualMatch(item, scopeOverride = null, keepDialog = false) 
           manualDialog.value = false;
         }
       }
-      await navigateToPath(currentPath.value);
+      await navigateToPath(currentPath.value, true);
       emit('refresh');
     } else {
       manualSearchError.value = res?.message || '移除手动匹配失败';

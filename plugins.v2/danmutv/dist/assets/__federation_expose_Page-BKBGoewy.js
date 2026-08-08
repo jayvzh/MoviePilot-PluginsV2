@@ -539,7 +539,7 @@ return (_ctx, _cache) => {
 };
 const Dashboard = /*#__PURE__*/_export_sfc(_sfc_main$5, [['__scopeId',"data-v-81dd44fc"]]);
 
-const {resolveComponent:_resolveComponent$4,createVNode:_createVNode$4,createElementVNode:_createElementVNode$4,withCtx:_withCtx$4,toDisplayString:_toDisplayString$3,createTextVNode:_createTextVNode$4,openBlock:_openBlock$4,createBlock:_createBlock$4,createCommentVNode:_createCommentVNode$4,createElementBlock:_createElementBlock$4,renderList:_renderList,Fragment:_Fragment,withModifiers:_withModifiers,normalizeClass:_normalizeClass,withKeys:_withKeys} = await importShared('vue');
+const {resolveComponent:_resolveComponent$4,createVNode:_createVNode$4,createElementVNode:_createElementVNode$4,createTextVNode:_createTextVNode$4,withCtx:_withCtx$4,toDisplayString:_toDisplayString$3,openBlock:_openBlock$4,createBlock:_createBlock$4,createCommentVNode:_createCommentVNode$4,createElementBlock:_createElementBlock$4,renderList:_renderList,Fragment:_Fragment,withModifiers:_withModifiers,normalizeClass:_normalizeClass,withKeys:_withKeys} = await importShared('vue');
 
 
 const _hoisted_1$4 = {
@@ -641,6 +641,9 @@ const loading = ref$4(false);
 const notConfigured = ref$4(false);
 const pathHistory = ref$4([]);
 
+// 目录缓存: { path: data }
+const dirCache = new Map();
+
 const searchKeyword = ref$4('');
 const scanningStats = ref$4(false);
 
@@ -732,7 +735,16 @@ async function getStatus() {
   }
 }
 
-async function navigateToPath(path) {
+async function navigateToPath(path, force = false) {
+  // 有缓存且非强制刷新时直接使用缓存
+  const cacheKey = path || '';
+  if (!force && dirCache.has(cacheKey)) {
+    directoryContent.value = dirCache.get(cacheKey);
+    currentPath.value = path || '';
+    searchKeyword.value = '';
+    return;
+  }
+
   try {
     loading.value = true;
     error.value = null;
@@ -744,6 +756,7 @@ async function navigateToPath(path) {
       if (data && data.success) {
         directoryContent.value = data.data;
         currentPath.value = '';
+        dirCache.set('', data.data);
         if (data.data.type === 'root') {
           pathHistory.value = [];
         }
@@ -763,6 +776,7 @@ async function navigateToPath(path) {
       if (data && data.success) {
         directoryContent.value = data.data;
         currentPath.value = path;
+        dirCache.set(path, data.data);
         
         if (!pathHistory.value.includes(path)) {
           pathHistory.value.push(path);
@@ -777,6 +791,11 @@ async function navigateToPath(path) {
   } finally {
     loading.value = false;
   }
+}
+
+function refreshCurrentDir() {
+  dirCache.delete(currentPath.value || '');
+  navigateToPath(currentPath.value, true);
 }
 
 function goBack() {
@@ -928,7 +947,7 @@ async function confirmManualMatch() {
         manualContext.value.item.manual_scope = scope;
       }
       manualDialog.value = false;
-      await navigateToPath(currentPath.value);
+      await navigateToPath(currentPath.value, true);
       emit('refresh');
     } else {
       manualSearchError.value = res?.message || '保存匹配失败';
@@ -998,7 +1017,7 @@ async function confirmCleanSubtitles() {
     
     if (res && res.success) {
       successMessage.value = `成功清理 ${res.data?.deleted?.length || 0} 个字幕文件`;
-      await navigateToPath(currentPath.value);
+      await navigateToPath(currentPath.value, true);
       emit('refresh');
     } else {
       error.value = res?.message || '清理字幕失败';
@@ -1023,7 +1042,7 @@ async function scanDirectoryStats() {
     
     if (res && res.success) {
       successMessage.value = `扫描完成：共 ${res.data.total_files} 个视频文件，已刮削 ${res.data.scraped_files} 个`;
-      await navigateToPath(currentPath.value);
+      await navigateToPath(currentPath.value, true);
       emit('refresh');
     } else {
       error.value = res?.message || '扫描统计失败';
@@ -1057,7 +1076,7 @@ function startStatusPolling() {
     if (!scrapingStatus.running) {
       stopStatusPolling();
       successMessage.value = `批量刮削完成：成功 ${scrapingStatus.success}，失败 ${scrapingStatus.failed}，共 ${scrapingStatus.total}`;
-      await navigateToPath(currentPath.value);
+      await navigateToPath(currentPath.value, true);
       emit('refresh');
     }
   }, 3000);
@@ -1079,12 +1098,12 @@ async function generateDanmu(item) {
     });
     if (result && result.success) {
       successMessage.value = `弹幕生成成功（${result.data?.danmu_count || 0}条）`;
-      await navigateToPath(currentPath.value);
+      await navigateToPath(currentPath.value, true);
       emit('refresh');
     } else {
       error.value = result?.message || '弹幕生成失败';
       // 刷新目录以更新弹幕状态，同时通知历史记录更新
-      await navigateToPath(currentPath.value);
+      await navigateToPath(currentPath.value, true);
       emit('refresh');
     }
   } catch (err) {
@@ -1125,7 +1144,7 @@ async function clearManualMatch(item, scopeOverride = null, keepDialog = false) 
           manualDialog.value = false;
         }
       }
-      await navigateToPath(currentPath.value);
+      await navigateToPath(currentPath.value, true);
       emit('refresh');
     } else {
       manualSearchError.value = res?.message || '移除手动匹配失败';
@@ -1149,14 +1168,14 @@ onUnmounted(() => {
 
 return (_ctx, _cache) => {
   const _component_v_icon = _resolveComponent$4("v-icon");
+  const _component_v_spacer = _resolveComponent$4("v-spacer");
+  const _component_v_btn = _resolveComponent$4("v-btn");
   const _component_v_card_title = _resolveComponent$4("v-card-title");
   const _component_v_alert = _resolveComponent$4("v-alert");
   const _component_v_text_field = _resolveComponent$4("v-text-field");
   const _component_v_col = _resolveComponent$4("v-col");
   const _component_v_row = _resolveComponent$4("v-row");
-  const _component_v_btn = _resolveComponent$4("v-btn");
   const _component_v_progress_linear = _resolveComponent$4("v-progress-linear");
-  const _component_v_spacer = _resolveComponent$4("v-spacer");
   const _component_v_card_text = _resolveComponent$4("v-card-text");
   const _component_v_card = _resolveComponent$4("v-card");
   const _component_v_chip = _resolveComponent$4("v-chip");
@@ -1189,7 +1208,21 @@ return (_ctx, _cache) => {
                 color: "primary",
                 size: "small"
               }),
-              _cache[14] || (_cache[14] = _createElementVNode$4("span", null, "目录浏览", -1))
+              _cache[15] || (_cache[15] = _createElementVNode$4("span", null, "目录浏览", -1)),
+              _createVNode$4(_component_v_spacer),
+              _createVNode$4(_component_v_btn, {
+                color: "primary",
+                size: "small",
+                variant: "text",
+                "prepend-icon": "mdi-refresh",
+                loading: loading.value,
+                onClick: refreshCurrentDir
+              }, {
+                default: _withCtx$4(() => [...(_cache[14] || (_cache[14] = [
+                  _createTextVNode$4("刷新", -1)
+                ]))]),
+                _: 1
+              }, 8, ["loading"])
             ]),
             _: 1
           }),
@@ -1265,7 +1298,7 @@ return (_ctx, _cache) => {
                         onClick: scrapeCurrentDirectory,
                         class: "w-full"
                       }, {
-                        default: _withCtx$4(() => [...(_cache[15] || (_cache[15] = [
+                        default: _withCtx$4(() => [...(_cache[16] || (_cache[16] = [
                           _createTextVNode$4(" 刮削本目录 ", -1)
                         ]))]),
                         _: 1
@@ -1288,7 +1321,7 @@ return (_ctx, _cache) => {
                         onClick: scanDirectoryStats,
                         class: "w-full"
                       }, {
-                        default: _withCtx$4(() => [...(_cache[16] || (_cache[16] = [
+                        default: _withCtx$4(() => [...(_cache[17] || (_cache[17] = [
                           _createTextVNode$4(" 扫描统计 ", -1)
                         ]))]),
                         _: 1
@@ -1312,7 +1345,7 @@ return (_ctx, _cache) => {
                         onClick: cleanCurrentDirectorySubtitles,
                         class: "w-full"
                       }, {
-                        default: _withCtx$4(() => [...(_cache[17] || (_cache[17] = [
+                        default: _withCtx$4(() => [...(_cache[18] || (_cache[18] = [
                           _createTextVNode$4(" 清理字幕 ", -1)
                         ]))]),
                         _: 1
@@ -1351,7 +1384,7 @@ return (_ctx, _cache) => {
                                           size: "small",
                                           class: "mr-2 animate-spin"
                                         }),
-                                        _cache[19] || (_cache[19] = _createTextVNode$4(" 正在刮削中 ", -1)),
+                                        _cache[20] || (_cache[20] = _createTextVNode$4(" 正在刮削中 ", -1)),
                                         _createVNode$4(_component_v_spacer),
                                         _createVNode$4(_component_v_btn, {
                                           color: "error",
@@ -1360,7 +1393,7 @@ return (_ctx, _cache) => {
                                           "prepend-icon": "mdi-stop",
                                           onClick: abortScraping
                                         }, {
-                                          default: _withCtx$4(() => [...(_cache[18] || (_cache[18] = [
+                                          default: _withCtx$4(() => [...(_cache[19] || (_cache[19] = [
                                             _createTextVNode$4(" 中止 ", -1)
                                           ]))]),
                                           _: 1
@@ -1382,9 +1415,9 @@ return (_ctx, _cache) => {
                                         ]),
                                         _createElementVNode$4("div", _hoisted_5$2, [
                                           _createElementVNode$4("span", _hoisted_6$2, [
-                                            _cache[20] || (_cache[20] = _createTextVNode$4("成功: ", -1)),
+                                            _cache[21] || (_cache[21] = _createTextVNode$4("成功: ", -1)),
                                             _createElementVNode$4("span", _hoisted_7$1, _toDisplayString$3(scrapingStatus.success), 1),
-                                            _cache[21] || (_cache[21] = _createTextVNode$4(" | 失败: ", -1)),
+                                            _cache[22] || (_cache[22] = _createTextVNode$4(" | 失败: ", -1)),
                                             _createElementVNode$4("span", _hoisted_8$1, _toDisplayString$3(scrapingStatus.failed), 1)
                                           ]),
                                           _createElementVNode$4("span", _hoisted_9$1, "耗时: " + _toDisplayString$3(formatDuration(scrapingStatus.duration)), 1)
@@ -1503,7 +1536,7 @@ return (_ctx, _cache) => {
                                                   color: "grey",
                                                   class: "ml-2"
                                                 }, {
-                                                  default: _withCtx$4(() => [...(_cache[22] || (_cache[22] = [
+                                                  default: _withCtx$4(() => [...(_cache[23] || (_cache[23] = [
                                                     _createTextVNode$4(" 无弹幕 ", -1)
                                                   ]))]),
                                                   _: 1
@@ -1538,7 +1571,7 @@ return (_ctx, _cache) => {
                                               size: "small",
                                               class: "mr-1"
                                             }),
-                                            _cache[23] || (_cache[23] = _createTextVNode$4(" 手动匹配 ", -1))
+                                            _cache[24] || (_cache[24] = _createTextVNode$4(" 手动匹配 ", -1))
                                           ]),
                                           _: 1
                                         }, 8, ["onClick"]),
@@ -1555,7 +1588,7 @@ return (_ctx, _cache) => {
                                               size: "small",
                                               class: "mr-1"
                                             }),
-                                            _cache[24] || (_cache[24] = _createTextVNode$4(" 刮削 ", -1))
+                                            _cache[25] || (_cache[25] = _createTextVNode$4(" 刮削 ", -1))
                                           ]),
                                           _: 1
                                         }, 8, ["loading", "onClick"])
@@ -1571,7 +1604,7 @@ return (_ctx, _cache) => {
                                     class: "mb-2 text-caption",
                                     variant: "tonal"
                                   }, {
-                                    default: _withCtx$4(() => [...(_cache[25] || (_cache[25] = [
+                                    default: _withCtx$4(() => [...(_cache[26] || (_cache[26] = [
                                       _createTextVNode$4(" 该目录为空或没有支持的媒体文件 ", -1)
                                     ]))]),
                                     _: 1
@@ -1586,7 +1619,7 @@ return (_ctx, _cache) => {
                                 color: "primary",
                                 class: "mb-2"
                               }),
-                              _cache[26] || (_cache[26] = _createElementVNode$4("div", { class: "text-caption text-grey" }, "正在扫描目录，请稍候...", -1))
+                              _cache[27] || (_cache[27] = _createElementVNode$4("div", { class: "text-caption text-grey" }, "正在扫描目录，请稍候...", -1))
                             ]))
                           : (notConfigured.value)
                             ? (_openBlock$4(), _createElementBlock$4("div", _hoisted_21, [
@@ -1596,7 +1629,7 @@ return (_ctx, _cache) => {
                                   class: "mb-2 text-caption",
                                   variant: "tonal"
                                 }, {
-                                  default: _withCtx$4(() => [...(_cache[27] || (_cache[27] = [
+                                  default: _withCtx$4(() => [...(_cache[28] || (_cache[28] = [
                                     _createTextVNode$4(" 请先在配置中设置刮削路径 ", -1)
                                   ]))]),
                                   _: 1
@@ -1623,7 +1656,7 @@ return (_ctx, _cache) => {
                                     class: "mb-2 text-caption",
                                     variant: "tonal"
                                   }, {
-                                    default: _withCtx$4(() => [...(_cache[28] || (_cache[28] = [
+                                    default: _withCtx$4(() => [...(_cache[29] || (_cache[29] = [
                                       _createTextVNode$4(" 请先在配置中设置刮削路径 ", -1)
                                     ]))]),
                                     _: 1
@@ -1650,7 +1683,7 @@ return (_ctx, _cache) => {
           _createVNode$4(_component_v_card, null, {
             default: _withCtx$4(() => [
               _createVNode$4(_component_v_card_title, { class: "text-subtitle-1" }, {
-                default: _withCtx$4(() => [...(_cache[29] || (_cache[29] = [
+                default: _withCtx$4(() => [...(_cache[30] || (_cache[30] = [
                   _createTextVNode$4(" 手动匹配弹幕 ", -1)
                 ]))]),
                 _: 1
@@ -1742,7 +1775,7 @@ return (_ctx, _cache) => {
                             loading: manualSearchLoading.value,
                             onClick: performManualSearch
                           }, {
-                            default: _withCtx$4(() => [...(_cache[30] || (_cache[30] = [
+                            default: _withCtx$4(() => [...(_cache[31] || (_cache[31] = [
                               _createTextVNode$4(" 搜索 ", -1)
                             ]))]),
                             _: 1
@@ -1823,7 +1856,7 @@ return (_ctx, _cache) => {
                         variant: "tonal",
                         class: "mb-2 text-caption"
                       }, {
-                        default: _withCtx$4(() => [...(_cache[31] || (_cache[31] = [
+                        default: _withCtx$4(() => [...(_cache[32] || (_cache[32] = [
                           _createTextVNode$4(" 未找到匹配结果，请调整关键字后再试。 ", -1)
                         ]))]),
                         _: 1
@@ -1892,7 +1925,7 @@ return (_ctx, _cache) => {
                         variant: "text",
                         onClick: _cache[10] || (_cache[10] = $event => (clearManualMatch(manualTargetItem.value, manualExistingScope.value || (manualTargetItem.value?.type === 'directory' ? 'directory' : 'file'), true)))
                       }, {
-                        default: _withCtx$4(() => [...(_cache[32] || (_cache[32] = [
+                        default: _withCtx$4(() => [...(_cache[33] || (_cache[33] = [
                           _createTextVNode$4(" 清除匹配 ", -1)
                         ]))]),
                         _: 1
@@ -1903,7 +1936,7 @@ return (_ctx, _cache) => {
                     variant: "text",
                     onClick: closeManualDialog
                   }, {
-                    default: _withCtx$4(() => [...(_cache[33] || (_cache[33] = [
+                    default: _withCtx$4(() => [...(_cache[34] || (_cache[34] = [
                       _createTextVNode$4("取消", -1)
                     ]))]),
                     _: 1
@@ -1914,7 +1947,7 @@ return (_ctx, _cache) => {
                     loading: manualSaving.value,
                     onClick: confirmManualMatch
                   }, {
-                    default: _withCtx$4(() => [...(_cache[34] || (_cache[34] = [
+                    default: _withCtx$4(() => [...(_cache[35] || (_cache[35] = [
                       _createTextVNode$4(" 保存 ", -1)
                     ]))]),
                     _: 1
@@ -1943,13 +1976,13 @@ return (_ctx, _cache) => {
                     color: "warning",
                     class: "mr-2"
                   }),
-                  _cache[35] || (_cache[35] = _createTextVNode$4(" 确认清理字幕 ", -1))
+                  _cache[36] || (_cache[36] = _createTextVNode$4(" 确认清理字幕 ", -1))
                 ]),
                 _: 1
               }),
               _createVNode$4(_component_v_card_text, null, {
                 default: _withCtx$4(() => [
-                  _cache[37] || (_cache[37] = _createElementVNode$4("div", { class: "text-body-1" }, " 确定要清理当前目录下的所有弹幕和合并字幕文件吗？ ", -1)),
+                  _cache[38] || (_cache[38] = _createElementVNode$4("div", { class: "text-body-1" }, " 确定要清理当前目录下的所有弹幕和合并字幕文件吗？ ", -1)),
                   _createElementVNode$4("div", _hoisted_29, " 目录：" + _toDisplayString$3(currentPath.value), 1),
                   _createVNode$4(_component_v_alert, {
                     type: "warning",
@@ -1957,7 +1990,7 @@ return (_ctx, _cache) => {
                     variant: "tonal",
                     class: "mt-3 text-caption"
                   }, {
-                    default: _withCtx$4(() => [...(_cache[36] || (_cache[36] = [
+                    default: _withCtx$4(() => [...(_cache[37] || (_cache[37] = [
                       _createTextVNode$4(" 此操作不可恢复，清理后需重新刮削获取弹幕。 ", -1)
                     ]))]),
                     _: 1
@@ -1975,7 +2008,7 @@ return (_ctx, _cache) => {
                     class: "mr-3",
                     onClick: _cache[12] || (_cache[12] = $event => (cleanConfirmDialog.value = false))
                   }, {
-                    default: _withCtx$4(() => [...(_cache[38] || (_cache[38] = [
+                    default: _withCtx$4(() => [...(_cache[39] || (_cache[39] = [
                       _createTextVNode$4("取消", -1)
                     ]))]),
                     _: 1
@@ -1986,7 +2019,7 @@ return (_ctx, _cache) => {
                     size: "small",
                     onClick: confirmCleanSubtitles
                   }, {
-                    default: _withCtx$4(() => [...(_cache[39] || (_cache[39] = [
+                    default: _withCtx$4(() => [...(_cache[40] || (_cache[40] = [
                       _createTextVNode$4("确认清理", -1)
                     ]))]),
                     _: 1
@@ -2008,7 +2041,7 @@ return (_ctx, _cache) => {
 }
 
 };
-const BrowseView = /*#__PURE__*/_export_sfc(_sfc_main$4, [['__scopeId',"data-v-dca0205f"]]);
+const BrowseView = /*#__PURE__*/_export_sfc(_sfc_main$4, [['__scopeId',"data-v-fbde3429"]]);
 
 const {resolveComponent:_resolveComponent$3,createVNode:_createVNode$3,toDisplayString:_toDisplayString$2,createElementVNode:_createElementVNode$3,createTextVNode:_createTextVNode$3,withCtx:_withCtx$3,openBlock:_openBlock$3,createBlock:_createBlock$3,createCommentVNode:_createCommentVNode$3,mergeProps:_mergeProps,createElementBlock:_createElementBlock$3} = await importShared('vue');
 
