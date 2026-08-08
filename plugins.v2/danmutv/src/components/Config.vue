@@ -228,6 +228,40 @@
             <v-card-title class="text-caption d-flex align-center px-3 py-2 bg-primary-lighten-5">
               <v-icon icon="mdi-video" class="mr-2" color="primary" size="small" />
               <span>弹幕参数设置</span>
+              <v-spacer></v-spacer>
+              <v-select
+                v-model="selectedPreset"
+                :items="presetItems"
+                item-title="name"
+                item-value="name"
+                label="方案"
+                variant="outlined"
+                density="compact"
+                hide-details
+                class="preset-select"
+                :disabled="saving"
+                @update:model-value="applyPreset"
+              ></v-select>
+              <v-tooltip text="应用方案" location="top">
+                <template v-slot:activator="{ props }">
+                  <v-btn icon="mdi-check" size="x-small" variant="text" color="primary" v-bind="props" :disabled="!selectedPreset || saving" @click="applyPreset(selectedPreset)"></v-btn>
+                </template>
+              </v-tooltip>
+              <v-tooltip text="另存为新方案" location="top">
+                <template v-slot:activator="{ props }">
+                  <v-btn icon="mdi-content-save-plus" size="x-small" variant="text" color="success" v-bind="props" :disabled="saving" @click="showSavePresetDialog = true"></v-btn>
+                </template>
+              </v-tooltip>
+              <v-tooltip text="覆盖保存当前方案" location="top">
+                <template v-slot:activator="{ props }">
+                  <v-btn icon="mdi-content-save" size="x-small" variant="text" color="info" v-bind="props" :disabled="!selectedPreset || saving" @click="overwritePreset"></v-btn>
+                </template>
+              </v-tooltip>
+              <v-tooltip text="删除方案" location="top">
+                <template v-slot:activator="{ props }">
+                  <v-btn icon="mdi-delete" size="x-small" variant="text" color="error" v-bind="props" :disabled="!selectedPreset || saving" @click="deletePreset"></v-btn>
+                </template>
+              </v-tooltip>
             </v-card-title>
             <v-card-text class="px-3 py-2">
               <v-row>
@@ -491,11 +525,34 @@
         <v-btn color="grey" @click="emit('close')" prepend-icon="mdi-close" :disabled="saving" variant="text" size="small">关闭</v-btn>
       </v-card-actions>
     </v-card>
+
+    <!-- 保存预设方案对话框 -->
+    <v-dialog v-model="showSavePresetDialog" max-width="400">
+      <v-card>
+        <v-card-title class="text-h6">保存弹幕参数方案</v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="newPresetName"
+            label="方案名称"
+            variant="outlined"
+            density="compact"
+            :rules="[v => !!v?.trim() || '请输入方案名称']"
+            autofocus
+            @keyup.enter="saveAsNewPreset"
+          ></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="grey" variant="text" @click="showSavePresetDialog = false">取消</v-btn>
+          <v-btn color="primary" variant="text" :disabled="!newPresetName?.trim()" @click="saveAsNewPreset">保存</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 
 const props = defineProps({
   api: { 
@@ -518,6 +575,16 @@ const saving = ref(false);
 const testingApi = ref(false);
 const apiTestResult = ref(null);
 const initialConfigLoaded = ref(false);
+
+// 弹幕参数预设相关状态
+const danmuPresets = ref({});
+const selectedPreset = ref('');
+const showSavePresetDialog = ref(false);
+const newPresetName = ref('');
+
+const presetItems = computed(() => {
+  return Object.keys(danmuPresets.value).map(name => ({ name }));
+});
 
 // Holds the config as fetched from server, used for reset
 const serverFetchedConfig = reactive({}); 
@@ -739,6 +806,110 @@ function resetConfigToFetched() {
   setTimeout(() => { successMessage.value = null; error.value = null; }, 3000);
 }
 
+// --- 弹幕参数预设功能 ---
+
+const DANMU_PARAM_KEYS = [
+  'fontsize', 'screen_area', 'alpha', 'duration',
+  'enable_multi_layer', 'multi_layer_count',
+  'random_top_bottom', 'top_ratio', 'bottom_ratio',
+  'density', 'width_scale'
+];
+
+function getDanmuParams() {
+  const params = {};
+  DANMU_PARAM_KEYS.forEach(k => {
+    params[k] = editableConfig[k];
+  });
+  return params;
+}
+
+function applyDanmuParams(params) {
+  DANMU_PARAM_KEYS.forEach(k => {
+    if (params[k] !== undefined) {
+      editableConfig[k] = params[k];
+    }
+  });
+}
+
+async function loadPresets() {
+  try {
+    const res = await props.api.get(`plugin/${getPluginId()}/danmu_presets`);
+    if (res && res.success && res.data) {
+      danmuPresets.value = res.data;
+    }
+  } catch (e) {
+    console.error('加载弹幕参数预设失败:', e);
+  }
+}
+
+function applyPreset(name) {
+  if (!name || !danmuPresets.value[name]) return;
+  applyDanmuParams(danmuPresets.value[name]);
+  successMessage.value = `已应用方案: ${name}`;
+  setTimeout(() => { successMessage.value = null; }, 3000);
+}
+
+async function saveAsNewPreset() {
+  const name = newPresetName.value?.trim();
+  if (!name) return;
+  try {
+    const res = await props.api.post(`plugin/${getPluginId()}/save_danmu_preset`, {
+      name,
+      params: getDanmuParams()
+    });
+    if (res && res.success) {
+      danmuPresets.value = res.data || {};
+      selectedPreset.value = name;
+      showSavePresetDialog.value = false;
+      newPresetName.value = '';
+      successMessage.value = `方案 '${name}' 已保存`;
+    } else {
+      error.value = res?.message || '保存方案失败';
+    }
+  } catch (e) {
+    error.value = e.message || '保存方案失败';
+  }
+  setTimeout(() => { successMessage.value = null; error.value = null; }, 3000);
+}
+
+async function overwritePreset() {
+  const name = selectedPreset.value;
+  if (!name) return;
+  try {
+    const res = await props.api.post(`plugin/${getPluginId()}/save_danmu_preset`, {
+      name,
+      params: getDanmuParams()
+    });
+    if (res && res.success) {
+      danmuPresets.value = res.data || {};
+      successMessage.value = `方案 '${name}' 已覆盖保存`;
+    } else {
+      error.value = res?.message || '覆盖保存失败';
+    }
+  } catch (e) {
+    error.value = e.message || '覆盖保存失败';
+  }
+  setTimeout(() => { successMessage.value = null; error.value = null; }, 3000);
+}
+
+async function deletePreset() {
+  const name = selectedPreset.value;
+  if (!name) return;
+  try {
+    const res = await props.api.post(`plugin/${getPluginId()}/delete_danmu_preset`, { name });
+    if (res && res.success) {
+      danmuPresets.value = res.data || {};
+      selectedPreset.value = '';
+      successMessage.value = `方案 '${name}' 已删除`;
+    } else {
+      error.value = res?.message || '删除方案失败';
+    }
+  } catch (e) {
+    error.value = e.message || '删除方案失败';
+  }
+  setTimeout(() => { successMessage.value = null; error.value = null; }, 3000);
+}
+
 onMounted(() => {
   // 初始化时使用初始配置
   if (props.initialConfig) {
@@ -760,6 +931,7 @@ onMounted(() => {
     });
   }
   loadInitialData();
+  loadPresets();
 });
 </script>
 
@@ -788,6 +960,11 @@ onMounted(() => {
 
 .config-card:hover {
   box-shadow: 0 3px 6px rgba(var(--v-border-color), 0.1) !important;
+}
+
+.preset-select {
+  max-width: 140px;
+  font-size: 0.75rem;
 }
 
 .setting-item {

@@ -32,7 +32,7 @@ class DanmuTV(_PluginBase):
     # 主题色
     plugin_color = "#3B5E8E"
     # 插件版本
-    plugin_version = "1.6"
+    plugin_version = "1.7"
     # 插件作者
     plugin_author = "jayvzh"
     # 作者主页
@@ -104,6 +104,26 @@ class DanmuTV(_PluginBase):
     # 统一目录记录模型存储键
     _directory_records_key = "danmutv_directory_records"
     _global_history_key = "danmutv_global_history"
+
+    # 弹幕参数预设存储键
+    _danmu_presets_key = "danmu_presets"
+    # 默认预设方案
+    _DEFAULT_DANMU_PRESET = {
+        "默认方案": {
+            "fontsize": 48,
+            "screen_area": "quarter",
+            "alpha": 0.6,
+            "duration": 14,
+            "enable_multi_layer": True,
+            "multi_layer_count": 2,
+            "random_top_bottom": False,
+            "top_ratio": 0,
+            "bottom_ratio": 0,
+            "density": 50,
+            "width_scale": 1.2
+        }
+    }
+    _danmu_presets: Dict[str, Dict[str, Any]] = {}
     
     # 目录记录缓存
     _directory_records: Dict[str, Dict[str, Any]] = {}
@@ -166,6 +186,55 @@ class DanmuTV(_PluginBase):
             payload = self._normalize_manual_entry(info, scope="file")
             if payload:
                 self._manual_file_matches[norm] = payload
+
+    def _load_danmu_presets(self):
+        """加载弹幕参数预设，首次加载时写入默认方案"""
+        stored = self.get_data(self._danmu_presets_key)
+        if isinstance(stored, dict) and len(stored) > 0:
+            self._danmu_presets = stored
+        else:
+            self._danmu_presets = dict(self._DEFAULT_DANMU_PRESET)
+            self._save_danmu_presets()
+
+    def _save_danmu_presets(self):
+        """保存弹幕参数预设"""
+        try:
+            self.save_data(self._danmu_presets_key, self._danmu_presets)
+        except Exception as e:
+            logger.error(f"保存弹幕参数预设失败: {e}")
+
+    def _get_danmu_presets(self) -> schemas.Response:
+        """获取所有弹幕参数预设"""
+        return schemas.Response(success=True, data=self._danmu_presets)
+
+    def _save_danmu_preset(self, data: Dict[str, Any]) -> schemas.Response:
+        """保存弹幕参数预设"""
+        try:
+            name = (data.get("name") or "").strip()
+            if not name:
+                return schemas.Response(success=False, message="方案名称不能为空")
+            params = data.get("params", {})
+            self._danmu_presets[name] = params
+            self._save_danmu_presets()
+            return schemas.Response(success=True, message=f"方案 '{name}' 已保存", data=self._danmu_presets)
+        except Exception as e:
+            logger.error(f"保存弹幕参数预设失败: {e}")
+            return schemas.Response(success=False, message=f"保存失败: {str(e)}")
+
+    def _delete_danmu_preset(self, data: Dict[str, Any]) -> schemas.Response:
+        """删除弹幕参数预设"""
+        try:
+            name = (data.get("name") or "").strip()
+            if not name:
+                return schemas.Response(success=False, message="方案名称不能为空")
+            if name not in self._danmu_presets:
+                return schemas.Response(success=False, message=f"方案 '{name}' 不存在")
+            del self._danmu_presets[name]
+            self._save_danmu_presets()
+            return schemas.Response(success=True, message=f"方案 '{name}' 已删除", data=self._danmu_presets)
+        except Exception as e:
+            logger.error(f"删除弹幕参数预设失败: {e}")
+            return schemas.Response(success=False, message=f"删除失败: {str(e)}")
 
     def _load_directory_records(self):
         stored = self.get_data(self._directory_records_key)
@@ -435,6 +504,8 @@ class DanmuTV(_PluginBase):
             self._load_retry_tasks()
         # 加载手动匹配缓存
         self._load_manual_matches()
+        # 加载弹幕参数预设
+        self._load_danmu_presets()
         # 加载目录记录和历史记录
         self._load_directory_records()
         # 惰性验证清理过期记录
@@ -685,6 +756,30 @@ class DanmuTV(_PluginBase):
             "auth": "bear",
             "summary": "清空历史记录",
             "description": "清空所有刮削历史记录"
+        },
+        {
+            "path": "/danmu_presets",
+            "endpoint": self._get_danmu_presets,
+            "methods": ["GET"],
+            "auth": "bear",
+            "summary": "获取弹幕参数预设",
+            "description": "获取所有已保存的弹幕参数预设方案"
+        },
+        {
+            "path": "/save_danmu_preset",
+            "endpoint": self._save_danmu_preset,
+            "methods": ["POST"],
+            "auth": "bear",
+            "summary": "保存弹幕参数预设",
+            "description": "保存当前弹幕参数为预设方案"
+        },
+        {
+            "path": "/delete_danmu_preset",
+            "endpoint": self._delete_danmu_preset,
+            "methods": ["POST"],
+            "auth": "bear",
+            "summary": "删除弹幕参数预设",
+            "description": "删除指定的弹幕参数预设方案"
         }
         ]
      
