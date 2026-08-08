@@ -16,8 +16,10 @@
           :items="history"
           :items-per-page="10"
           :loading="loading"
-          class="elevation-1"
+          density="compact"
+          class="elevation-1 history-table"
           item-key="id"
+          show-expand
         >
           <template v-slot:item.timestamp="{ item }">
             {{ formatTime(item.timestamp) }}
@@ -47,6 +49,7 @@
                   :headers="detailHeaders"
                   :items="item.details"
                   hide-default-footer
+                  density="compact"
                   class="elevation-0"
                 >
                   <template v-slot:item.result="{ item }">
@@ -184,5 +187,19 @@ onMounted(() => {
 
 .status-card:hover {
   box-shadow: 0 3px 6px rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+}
+
+.history-table :deep(thead) {
+  background-color: rgba(var(--v-theme-primary), 0.05);
+}
+
+.history-table :deep(th) {
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  white-space: nowrap;
+}
+
+.history-table :deep(td) {
+  font-size: 0.75rem !important;
 }
 </style>

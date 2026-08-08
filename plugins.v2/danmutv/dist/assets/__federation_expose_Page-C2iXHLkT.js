@@ -2238,8 +2238,8 @@ return (_ctx, _cache) => {
                 items: tasks.value,
                 "items-per-page": 10,
                 loading: loading.value,
-                class: "elevation-1",
-                "hide-default-footer": ""
+                density: "compact",
+                class: "elevation-1 retry-table"
               }, {
                 "item.file_path": _withCtx$3(({ item }) => [
                   _createElementVNode$3("div", {
@@ -2315,7 +2315,7 @@ return (_ctx, _cache) => {
 }
 
 };
-const RetryTasks = /*#__PURE__*/_export_sfc(_sfc_main$3, [['__scopeId',"data-v-7face0c2"]]);
+const RetryTasks = /*#__PURE__*/_export_sfc(_sfc_main$3, [['__scopeId',"data-v-1219a23d"]]);
 
 const {resolveComponent:_resolveComponent$2,createVNode:_createVNode$2,toDisplayString:_toDisplayString$1,createElementVNode:_createElementVNode$2,createTextVNode:_createTextVNode$2,withCtx:_withCtx$2,openBlock:_openBlock$2,createElementBlock:_createElementBlock$2,createCommentVNode:_createCommentVNode$2,createBlock:_createBlock$2} = await importShared('vue');
 
@@ -2493,8 +2493,10 @@ return (_ctx, _cache) => {
                 items: history.value,
                 "items-per-page": 10,
                 loading: loading.value,
-                class: "elevation-1",
-                "item-key": "id"
+                density: "compact",
+                class: "elevation-1 history-table",
+                "item-key": "id",
+                "show-expand": ""
               }, {
                 "item.timestamp": _withCtx$2(({ item }) => [
                   _createTextVNode$2(_toDisplayString$1(formatTime(item.timestamp)), 1)
@@ -2532,6 +2534,7 @@ return (_ctx, _cache) => {
                             headers: detailHeaders,
                             items: item.details,
                             "hide-default-footer": "",
+                            density: "compact",
                             class: "elevation-0"
                           }, {
                             "item.result": _withCtx$2(({ item }) => [
@@ -2576,7 +2579,7 @@ return (_ctx, _cache) => {
 }
 
 };
-const History = /*#__PURE__*/_export_sfc(_sfc_main$2, [['__scopeId',"data-v-b05819c3"]]);
+const History = /*#__PURE__*/_export_sfc(_sfc_main$2, [['__scopeId',"data-v-c934a01c"]]);
 
 const {resolveComponent:_resolveComponent$1,createVNode:_createVNode$1,createTextVNode:_createTextVNode$1,withCtx:_withCtx$1,openBlock:_openBlock$1,createElementBlock:_createElementBlock$1,createCommentVNode:_createCommentVNode$1,toDisplayString:_toDisplayString,createBlock:_createBlock$1,createElementVNode:_createElementVNode$1} = await importShared('vue');
 

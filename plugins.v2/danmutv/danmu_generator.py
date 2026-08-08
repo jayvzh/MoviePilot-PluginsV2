@@ -456,13 +456,14 @@ class DanmuAPI:
             return None
 
     @classmethod
-    def get_comments(cls, comment_id: str, cache_ttl: Optional[int] = None) -> Optional[Dict]:
+    def get_comments(cls, comment_id: str, cache_ttl: Optional[int] = None) -> Tuple[Optional[Dict], str]:
         """
         获取弹幕内容
         :param comment_id: 弹幕ID
         :param cache_ttl: 缓存时间（分钟），传给中转服务器控制缓存
-        :return: 弹幕数据
+        :return: (弹幕数据, 错误类型) 错误类型为空字符串表示成功，否则为 rate_limit/network
         """
+        last_error = "network"
         try:
             url = f"{cls.get_api_url()}/api/v2/comment/{comment_id}?format=json&duration=true"
             if cache_ttl is not None:
@@ -478,20 +479,22 @@ class DanmuAPI:
                     wait = 3 * (2 ** retry)  # 指数退避：3s, 6s, 12s, 24s
                     logger.warning(f"获取弹幕被限流(429)，等待{wait}秒后重试 ({retry+1}/4)")
                     cls._trigger_rate_limit(wait)
+                    last_error = "rate_limit"
                     time.sleep(wait)
                 else:
+                    last_error = "network"
                     break
             
             if response and response.status_code == 200:
                 result = response.json()
                 if "comments" not in result:
                     result = {"comments": result}
-                return result
-            logger.error(f"获取弹幕失败: {response.text}")
-            return None
+                return result, ""
+            logger.error(f"获取弹幕失败: {response.text if response else '无响应'}")
+            return None, last_error
         except Exception as e:
             logger.error(f"获取弹幕失败: {e}")
-            return None
+            return None, "network"
 
 class DanmuConverter:
     @staticmethod
@@ -1546,9 +1549,9 @@ def danmu_generator(file_path: str, width: int = 1920, height: int = 1080,
             logger.info(f"未找到对应弹幕 - {file_path}")
             return "error:no_match:未找到对应弹幕"
 
-        comments_data = DanmuAPI.get_comments(comment_id, cache_ttl=cache_ttl)
+        comments_data, err_type = DanmuAPI.get_comments(comment_id, cache_ttl=cache_ttl)
         if not comments_data:
-            if DanmuAPI._rate_limit_until > time.time():
+            if err_type == "rate_limit":
                 return "error:rate_limit:未获取到弹幕数据(被限流429)"
             return "error:network:未获取到弹幕数据(网络或API异常)"
 

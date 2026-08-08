@@ -23,8 +23,8 @@
           :items="tasks"
           :items-per-page="10"
           :loading="loading"
-          class="elevation-1"
-          hide-default-footer
+          density="compact"
+          class="elevation-1 retry-table"
         >
           <template v-slot:item.file_path="{ item }">
             <div class="text-truncate" :title="item.file_path">
@@ -192,5 +192,19 @@ onMounted(() => {
 
 .status-card:hover {
   box-shadow: 0 3px 6px rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+}
+
+.retry-table :deep(thead) {
+  background-color: rgba(var(--v-theme-primary), 0.05);
+}
+
+.retry-table :deep(th) {
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  white-space: nowrap;
+}
+
+.retry-table :deep(td) {
+  font-size: 0.75rem !important;
 }
 </style>
