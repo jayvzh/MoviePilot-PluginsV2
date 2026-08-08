@@ -32,9 +32,13 @@
             </div>
           </template>
           <template v-slot:item.error_type="{ item }">
-            <v-chip :color="getErrorColor(item.error_type)" size="small">
-              {{ getErrorLabel(item.error_type) }}
-            </v-chip>
+            <v-tooltip :text="item.error_message || getErrorLabel(item.error_type)" location="top">
+              <template v-slot:activator="{ props }">
+                <v-chip :color="getErrorColor(item.error_type)" size="small" v-bind="props">
+                  {{ getErrorLabel(item.error_type) }}
+                </v-chip>
+              </template>
+            </v-tooltip>
           </template>
           <template v-slot:item.actions="{ item }">
             <v-btn icon size="small" color="primary" @click="retrySingle(item.file_path)">
@@ -144,8 +148,10 @@ const getFileName = (filePath) => {
 
 const getErrorLabel = (errorType) => {
   const labels = {
-    'rate_limit': '限流',
-    'network': '网络',
+    'rate_limit': '429限流',
+    'no_data': '无弹幕',
+    'no_match': '未匹配',
+    'network': '网络错误',
     'unknown': '未知'
   }
   return labels[errorType] || errorType
@@ -154,10 +160,12 @@ const getErrorLabel = (errorType) => {
 const getErrorColor = (errorType) => {
   const colors = {
     'rate_limit': 'warning',
+    'no_data': 'info',
+    'no_match': 'secondary',
     'network': 'error',
-    'unknown': 'info'
+    'unknown': 'grey'
   }
-  return colors[errorType] || 'info'
+  return colors[errorType] || 'grey'
 }
 
 onMounted(() => {

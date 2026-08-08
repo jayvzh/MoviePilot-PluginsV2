@@ -6,6 +6,24 @@
         <span>目录浏览</span>
       </v-card-title>
       <v-card-text class="px-3 py-2">
+        <v-alert
+          v-if="error"
+          type="error"
+          density="compact"
+          class="mb-2 text-caption"
+          variant="tonal"
+          closable
+          @click:close="error = null"
+        >{{ error }}</v-alert>
+        <v-alert
+          v-if="successMessage"
+          type="success"
+          density="compact"
+          class="mb-2 text-caption"
+          variant="tonal"
+          closable
+          @click:close="successMessage = null"
+        >{{ successMessage }}</v-alert>
         <v-row class="mb-2">
           <v-col cols="12">
             <v-text-field
@@ -892,12 +910,14 @@ async function generateDanmu(item) {
       params: { file_path: item.path }
     });
     if (result && result.success) {
-      successMessage.value = '弹幕生成成功';
+      successMessage.value = `弹幕生成成功（${result.data?.danmu_count || 0}条）`;
       await navigateToPath(currentPath.value);
       emit('refresh');
     } else {
-      console.log('后端返回：', result);
       error.value = result?.message || '弹幕生成失败';
+      // 刷新目录以更新弹幕状态，同时通知历史记录更新
+      await navigateToPath(currentPath.value);
+      emit('refresh');
     }
   } catch (err) {
     error.value = '生成弹幕失败，请检查网络或API';

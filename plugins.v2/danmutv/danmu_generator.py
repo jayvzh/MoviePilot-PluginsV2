@@ -1544,17 +1544,19 @@ def danmu_generator(file_path: str, width: int = 1920, height: int = 1080,
         )
         if not comment_id:
             logger.info(f"未找到对应弹幕 - {file_path}")
-            return "未找到对应弹幕"
+            return "error:no_match:未找到对应弹幕"
 
         comments_data = DanmuAPI.get_comments(comment_id, cache_ttl=cache_ttl)
         if not comments_data:
-            return "error:rate_limit:未获取到弹幕数据"
+            if DanmuAPI._rate_limit_until > time.time():
+                return "error:rate_limit:未获取到弹幕数据(被限流429)"
+            return "error:network:未获取到弹幕数据(网络或API异常)"
 
         comments = sorted(comments_data["comments"], key=lambda x: float(x['p'].split(',')[0]))
         
         if len(comments) == 0:
             logger.info(f"弹幕数量为0，跳过生成 - {file_path}")
-            return "弹幕数量为0，跳过生成"
+            return "error:no_data:弹幕数量为0，跳过生成"
 
         # 过滤B站弹幕
         if onlyFromBili:

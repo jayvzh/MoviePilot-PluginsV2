@@ -54,9 +54,13 @@
                              :color="item.result === 'success' ? 'success' : 'error'" 
                              size="small"></v-icon>
                   </template>
+                  <template v-slot:item.error="{ item }">
+                    <span v-if="item.error" class="text-error text-caption">{{ item.error }}</span>
+                    <span v-else class="text-grey">-</span>
+                  </template>
                 </v-data-table>
               </div>
-              <div v-else class="text-grey text-sm">暂无详情（需在配置中开启"记录历史详情"）</div>
+              <div v-else class="text-grey text-sm">暂无详情</div>
             </td>
           </template>
         </v-data-table>
@@ -94,9 +98,10 @@ const headers = [
 ]
 
 const detailHeaders = [
-  { text: '文件', value: 'file', width: '70%' },
-  { text: '结果', value: 'result', width: '15%' },
-  { text: '弹幕数', value: 'danmu_count', width: '15%' }
+  { text: '文件', value: 'file', width: '40%' },
+  { text: '结果', value: 'result', width: '10%' },
+  { text: '弹幕数', value: 'danmu_count', width: '10%' },
+  { text: '错误信息', value: 'error', width: '40%' }
 ]
 
 const fetchHistory = async () => {

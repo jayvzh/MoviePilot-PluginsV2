@@ -910,19 +910,23 @@ class DanmuTV(_PluginBase):
             danmu_count = 0
             
             error_type = "unknown"
+            error_message = ""
             if isinstance(result, str) and result.startswith('error:'):
                 parts = result.split(':', 2)
                 if len(parts) >= 2:
                     error_type = parts[1]
+                if len(parts) >= 3:
+                    error_message = parts[2]
                 logger.warning(result)
-                self._add_to_retry_if_needed(file_path, 0, error_type)
-                return result[7:] if error_type == "rate_limit" else result
+                self._add_to_retry_if_needed(file_path, 0, error_type, error_message)
+                return result
             
-            # 如果返回字符串且包含弹幕数量为0，说明是失败原因
-            if isinstance(result, str) and result.startswith('弹幕数量为0'):
+            # 如果返回字符串且不是弹幕文件路径，说明是失败原因
+            if isinstance(result, str) and not result.endswith('.danmu.chs.ass'):
+                error_message = result
                 logger.info(result)
                 # 检查是否需要添加到重试任务
-                self._add_to_retry_if_needed(file_path, 0)
+                self._add_to_retry_if_needed(file_path, 0, "unknown", error_message)
                 return result
             
             # 检查生成的弹幕文件
@@ -933,7 +937,7 @@ class DanmuTV(_PluginBase):
                 # 检查弹幕数量是否满足要求
                 if danmu_count < self._min_danmu_count:
                     logger.warning(f"弹幕数量 ({danmu_count}) 少于最小要求 ({self._min_danmu_count})，添加到重试任务")
-                    self._add_to_retry_if_needed(file_path, danmu_count)
+                    self._add_to_retry_if_needed(file_path, danmu_count, "no_data", f"弹幕数量不足: {danmu_count}/{self._min_danmu_count}")
                 else:
                     # 弹幕数量满足要求，如果之前在重试列表中则移除
                     with self._retry_lock:
@@ -944,21 +948,22 @@ class DanmuTV(_PluginBase):
             else:
                 logger.warning(f"弹幕文件不存在: {ass_file}")
                 # 没有生成弹幕文件，添加到重试任务
-                self._add_to_retry_if_needed(file_path, 0)
+                self._add_to_retry_if_needed(file_path, 0, "unknown", "弹幕文件未生成")
                 
             return result
         except Exception as e:
             logger.error(f"生成弹幕失败: {e}")
             # 生成失败，添加到重试任务
-            self._add_to_retry_if_needed(file_path, 0)
+            self._add_to_retry_if_needed(file_path, 0, "network", f"生成弹幕失败: {str(e)}")
             return f"生成弹幕失败: {str(e)}"
 
-    def _add_to_retry_if_needed(self, file_path: str, danmu_count: int, error_type: str = "unknown"):
+    def _add_to_retry_if_needed(self, file_path: str, danmu_count: int, error_type: str = "unknown", error_message: str = ""):
         """
         根据弹幕数量判断是否需要添加到重试任务
         :param file_path: 文件路径
         :param danmu_count: 弹幕数量
-        :param error_type: 错误类型 (rate_limit/network/unknown)
+        :param error_type: 错误类型 (rate_limit/no_data/no_match/network/unknown)
+        :param error_message: 错误详细信息
         """
         if not self._enable_retry_task:
             return
@@ -971,6 +976,7 @@ class DanmuTV(_PluginBase):
                 self._retry_tasks[norm]["retry_count"] += 1
                 self._retry_tasks[norm]["last_attempt"] = now
                 self._retry_tasks[norm]["error_type"] = error_type
+                self._retry_tasks[norm]["error_message"] = error_message
                 self._retry_tasks[norm]["last_danmu_count"] = danmu_count
 
                 if self._retry_tasks[norm]["retry_count"] >= self._max_retry_times:
@@ -983,7 +989,7 @@ class DanmuTV(_PluginBase):
                     retry_count = self._retry_tasks[norm]["retry_count"]
                     next_time = self._calculate_next_retry_time(retry_count, error_type)
                     self._retry_tasks[norm]["next_retry_time"] = next_time
-                    logger.info(f"更新重试任务: {file_path}，重试次数: {retry_count}，弹幕数量: {danmu_count}，下次重试: {next_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                    logger.info(f"更新重试任务: {file_path}，重试次数: {retry_count}，弹幕数量: {danmu_count}，错误: {error_type}，下次重试: {next_time.strftime('%Y-%m-%d %H:%M:%S')}")
             else:
                 if danmu_count < self._min_danmu_count:
                     next_time = self._calculate_next_retry_time(1, error_type)
@@ -993,9 +999,10 @@ class DanmuTV(_PluginBase):
                         "file_path": file_path,
                         "last_danmu_count": danmu_count,
                         "error_type": error_type,
+                        "error_message": error_message,
                         "next_retry_time": next_time
                     }
-                    logger.info(f"添加新的重试任务: {file_path}，当前弹幕数量: {danmu_count}，下次重试: {next_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                    logger.info(f"添加新的重试任务: {file_path}，当前弹幕数量: {danmu_count}，错误: {error_type}，下次重试: {next_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
         self._save_retry_tasks()
 
@@ -1014,6 +1021,12 @@ class DanmuTV(_PluginBase):
 
         if error_type == "rate_limit":
             base_minutes = max(base_minutes, 30)
+        elif error_type == "no_match":
+            # 未匹配到作品，重试间隔更长（可能需要手动匹配）
+            base_minutes = max(base_minutes, 60)
+        elif error_type == "no_data":
+            # 无弹幕数据，适当延长重试间隔
+            base_minutes = max(base_minutes, 15)
 
         return datetime.now() + timedelta(minutes=base_minutes)
 
@@ -1059,6 +1072,7 @@ class DanmuTV(_PluginBase):
                         "file_path": task_info.get("file_path", file_path),
                         "last_danmu_count": task_info.get("last_danmu_count", 0),
                         "error_type": task_info.get("error_type", "unknown"),
+                        "error_message": task_info.get("error_message", ""),
                         "next_retry_time": next_retry_time
                     }
                 except (ValueError, TypeError) as e:
@@ -1090,6 +1104,7 @@ class DanmuTV(_PluginBase):
                         "file_path": task_info["file_path"],
                         "last_danmu_count": task_info.get("last_danmu_count", 0),
                         "error_type": task_info.get("error_type", "unknown"),
+                        "error_message": task_info.get("error_message", ""),
                         "next_retry_time": task_info.get("next_retry_time", datetime.now()).isoformat()
                     }
 
@@ -1205,20 +1220,6 @@ class DanmuTV(_PluginBase):
         thread.start()
         return True
 
-    def _scrape_one(self, file_path: str):
-        try:
-            result = self.generate_danmu(file_path)
-            ok = isinstance(result, str) and result.endswith('.danmu.chs.ass')
-        except Exception as e:
-            logger.error(f"刮削文件失败: {file_path}: {e}")
-            ok = False
-        with self._scrape_lock:
-            self._scrape_progress["processed"] += 1
-            if ok:
-                self._scrape_progress["success"] += 1
-            else:
-                self._scrape_progress["failed"] += 1
-
     def _run_scrape_batch(self, files: List[str], label: str):
         logger.info(f"开始批量刮削（{label}），共 {len(files)} 个文件")
         # 批量期间不逐文件回写配置，结束后统一保存一次重试任务
@@ -1238,25 +1239,42 @@ class DanmuTV(_PluginBase):
                 with self._scrape_lock:
                     self._scrape_progress["current_file"] = os.path.basename(file_path)
                 
-                if self._enable_history_details:
-                    result = None
-                    danmu_count = 0
-                    try:
-                        result = self.generate_danmu(file_path)
-                        ok = isinstance(result, str) and result.endswith('.danmu.chs.ass')
-                        if ok and os.path.exists(result):
-                            danmu_count = self._count_danmu_lines_cached(result)
-                    except Exception as e:
-                        logger.error(f"刮削文件失败: {file_path}: {e}")
-                        ok = False
-                    
-                    details.append({
-                        "file": os.path.basename(file_path),
-                        "result": "success" if ok else "failed",
-                        "danmu_count": danmu_count
-                    })
-                else:
-                    self._scrape_one(file_path)
+                # 始终记录详情（含失败原因），便于排查问题
+                result = None
+                danmu_count = 0
+                error_reason = ""
+                try:
+                    result = self.generate_danmu(file_path)
+                    ok = isinstance(result, str) and result.endswith('.danmu.chs.ass')
+                    if ok and os.path.exists(result):
+                        danmu_count = self._count_danmu_lines_cached(result)
+                except Exception as e:
+                    logger.error(f"刮削文件失败: {file_path}: {e}")
+                    ok = False
+                    error_reason = f"生成弹幕失败: {str(e)}"
+                
+                if not ok and not error_reason:
+                    if isinstance(result, str) and result.startswith('error:'):
+                        parts = result.split(':', 2)
+                        error_reason = parts[2] if len(parts) >= 3 else result
+                    elif result is None:
+                        error_reason = "弹幕生成失败"
+                    elif isinstance(result, str):
+                        error_reason = result
+                
+                details.append({
+                    "file": os.path.basename(file_path),
+                    "result": "success" if ok else "failed",
+                    "danmu_count": danmu_count,
+                    "error": error_reason if not ok else ""
+                })
+                
+                with self._scrape_lock:
+                    self._scrape_progress["processed"] += 1
+                    if ok:
+                        self._scrape_progress["success"] += 1
+                    else:
+                        self._scrape_progress["failed"] += 1
                 
                 # 文件间短暂间隔，给API缓冲时间
                 time.sleep(0.5)
@@ -1285,7 +1303,7 @@ class DanmuTV(_PluginBase):
                 "aborted": self._scrape_aborted
             }
             
-            if self._enable_history_details and details:
+            if details:
                 history_record["details"] = details
             
             self._add_history_record(history_record)
@@ -1732,16 +1750,60 @@ class DanmuTV(_PluginBase):
             else:
                 return schemas.Response(success=False, message="不支持的文件格式")
             
+        start_time = time.time()
         try:
             result = self.generate_danmu(file_path)
-            if result is None:
-                return schemas.Response(success=False, message="弹幕生成失败")
-            # 如果是字符串且不是弹幕文件路径，说明是失败原因
-            if isinstance(result, str) and not result.endswith('.ass'):
-                return schemas.Response(success=False, message=result)
-            # 正常生成
+            elapsed = int(time.time() - start_time)
+            
+            # 判断是否成功
+            ok = isinstance(result, str) and result.endswith('.danmu.chs.ass')
+            
+            # 提取错误信息
+            error_reason = ""
+            if not ok:
+                if isinstance(result, str) and result.startswith('error:'):
+                    parts = result.split(':', 2)
+                    error_reason = parts[2] if len(parts) >= 3 else result
+                elif result is None:
+                    error_reason = "弹幕生成失败"
+                else:
+                    error_reason = result
+            
+            # 获取弹幕数量
             ass_file = f"{os.path.splitext(file_path)[0]}.danmu.chs.ass"
-            danmu_count = self._count_danmu_lines_cached(ass_file)
+            danmu_count = 0
+            if os.path.exists(ass_file):
+                danmu_count = self._count_danmu_lines_cached(ass_file)
+            
+            # 记录历史
+            detail = {
+                "file": os.path.basename(file_path),
+                "result": "success" if ok else "failed",
+                "danmu_count": danmu_count,
+                "error": error_reason if not ok else ""
+            }
+            history_record = {
+                "type": "single",
+                "path": file_path,
+                "processed": 1,
+                "success": 1 if ok else 0,
+                "failed": 0 if ok else 1,
+                "duration": elapsed,
+                "details": [detail]
+            }
+            self._add_history_record(history_record)
+            
+            if not ok:
+                if result is None:
+                    return schemas.Response(success=False, message="弹幕生成失败")
+                # 返回清理后的错误信息（去掉error:前缀）
+                if isinstance(result, str) and not result.endswith('.ass'):
+                    clean_msg = result
+                    if result.startswith('error:'):
+                        parts = result.split(':', 2)
+                        clean_msg = parts[2] if len(parts) >= 3 else parts[1] if len(parts) >= 2 else result
+                    return schemas.Response(success=False, message=clean_msg)
+            
             logger.info(f"生成弹幕成功，弹幕数量: {danmu_count}")
             if danmu_count == 0:
                 return schemas.Response(success=False, message="弹幕数量为0 跳过生成")
@@ -1754,7 +1816,23 @@ class DanmuTV(_PluginBase):
                 }
             )
         except Exception as e:
+            elapsed = int(time.time() - start_time)
             logger.error(f"生成弹幕失败: {e}")
+            # 记录失败历史
+            self._add_history_record({
+                "type": "single",
+                "path": file_path,
+                "processed": 1,
+                "success": 0,
+                "failed": 1,
+                "duration": elapsed,
+                "details": [{
+                    "file": os.path.basename(file_path),
+                    "result": "failed",
+                    "danmu_count": 0,
+                    "error": f"生成弹幕失败: {str(e)}"
+                }]
+            })
             return schemas.Response(success=False, message=f"生成弹幕失败: {str(e)}")
 
     def check_api_status(self, api_url: Optional[str] = None) -> schemas.Response:
@@ -1971,6 +2049,7 @@ class DanmuTV(_PluginBase):
                     "file_path": task_info["file_path"],
                     "last_danmu_count": task_info.get("last_danmu_count", 0),
                     "error_type": task_info.get("error_type", "unknown"),
+                    "error_message": task_info.get("error_message", ""),
                     "next_retry_time": task_info.get("next_retry_time", datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
                 }
         
@@ -2032,8 +2111,8 @@ class DanmuTV(_PluginBase):
                 result = self.generate_danmu(file_path)
                 processed_count += 1
                 
-                # 检查结果
-                if result and not (isinstance(result, str) and result.startswith('弹幕数量为0')):
+                # 检查结果：成功时result为.ass文件路径
+                if isinstance(result, str) and result.endswith('.danmu.chs.ass'):
                     # 检查弹幕文件是否满足要求
                     ass_file = f"{os.path.splitext(file_path)[0]}.danmu.chs.ass"
                     if os.path.exists(ass_file):
